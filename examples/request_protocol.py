@@ -2,7 +2,6 @@ import asyncio
 from typing import Sequence
 
 from spade.agent import Agent
-from spade.behaviour import CyclicBehaviour
 from spade.message import Message
 
 from src.behaviours.request_initiator import RequestInitiator
@@ -28,7 +27,7 @@ class InitiatorAgent(Agent):
             msg = Message(to=receiver)
             msg.set_metadata("performative", str(Performative.REQUEST))
             msg.body = "Request"
-            return  msg
+            return msg
 
     async def setup(self):
         print(f'Hello, I\'m {self.name}')

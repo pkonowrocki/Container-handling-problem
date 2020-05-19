@@ -34,11 +34,12 @@ class RequestInitiator(CyclicBehaviour):
 
         if self._state == RequestInitiatorState.WAITING_FOR_RESPONSES:
             response: Message = await self.receive()
-            self._responses.append(response)
-            self._responses_count += 1
-            self._handle_single_message(response)
-            if self._responses_count >= self._requests_count:
-                self._state = RequestInitiatorState.ALL_RESPONSES_RECEIVED
+            if response is not None:
+                self._responses.append(response)
+                self._responses_count += 1
+                self._handle_single_message(response)
+                if self._responses_count >= self._requests_count:
+                    self._state = RequestInitiatorState.ALL_RESPONSES_RECEIVED
             return
 
         if self._state == RequestInitiatorState.ALL_RESPONSES_RECEIVED:
@@ -50,38 +51,33 @@ class RequestInitiator(CyclicBehaviour):
         return self._state == RequestInitiatorState.FINALIZED
 
     def _handle_single_message(self, msg: Message) -> None:
+        performative: Performative = Performative(int(msg.get_metadata("performative")))
         {
             Performative.AGREE: self.handle_agree,
             Performative.REFUSE: self.handle_refuse,
             Performative.NOT_UNDERSTOOD: self.handle_not_understood,
             Performative.INFORM: self.handle_inform,
             Performative.FAILURE: self.handle_failure
-        }[msg.metadata.performative]()
+        }[performative](msg)
 
     @abstractmethod
     def prepare_requests(self) -> Sequence[Message]:
         pass
 
-    @abstractmethod
     def handle_all_responses(self, responses: Sequence[Message]):
         pass
 
-    @abstractmethod
-    def handle_agree(self):
+    def handle_agree(self, response: Message):
         pass
 
-    @abstractmethod
-    def handle_refuse(self):
+    def handle_refuse(self, response: Message):
         pass
 
-    @abstractmethod
-    def handle_inform(self):
+    def handle_inform(self, response: Message):
         pass
 
-    @abstractmethod
-    def handle_not_understood(self):
+    def handle_not_understood(self, response: Message):
         pass
 
-    @abstractmethod
-    def handle_failure(self):
+    def handle_failure(self, response: Message):
         pass

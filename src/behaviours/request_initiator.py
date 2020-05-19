@@ -30,22 +30,24 @@ class RequestInitiator(CyclicBehaviour):
             self._requests_count = len(requests)
             await asyncio.wait([self.send(msg) for msg in requests])
             self._state = RequestInitiatorState.WAITING_FOR_RESPONSES
+            return
 
         if self._state == RequestInitiatorState.WAITING_FOR_RESPONSES:
             response: Message = await self.receive()
             self._responses.append(response)
             self._responses_count += 1
+            self._handle_single_message(response)
             if self._responses_count >= self._requests_count:
                 self._state = RequestInitiatorState.ALL_RESPONSES_RECEIVED
+            return
 
         if self._state == RequestInitiatorState.ALL_RESPONSES_RECEIVED:
             self.handle_all_responses(self._responses)
+            self._state = RequestInitiatorState.FINALIZED
+            return
 
     def _done(self) -> bool:
-        if not self._already_executed:
-            self._already_executed = True
-            return False
-        return True
+        return self._state == RequestInitiatorState.FINALIZED
 
     def _handle_single_message(self, msg: Message) -> None:
         {

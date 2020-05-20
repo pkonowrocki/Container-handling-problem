@@ -8,3 +8,5 @@ class Performative(IntEnum):
     INFORM = 3
     FAILURE = 4
     REQUEST = 5
+    PROPOSE = 6
+    CFP = 7

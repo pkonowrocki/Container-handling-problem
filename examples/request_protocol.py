@@ -1,4 +1,3 @@
-import asyncio
 from typing import Sequence
 
 from spade.agent import Agent
@@ -35,20 +34,14 @@ class InitiatorAgent(Agent):
 
 
 class ResponderAgent(Agent):
-    def __init__(self, jid, password, sleep_time):
-        super().__init__(jid, password)
-        self.sleep_time = sleep_time
-
     class ResponderBehaviour(RequestResponder):
-        async def prepare_response(self, request: Message) -> Message:
+        def prepare_response(self, request: Message) -> Message:
             print(f'REQUEST received from {request.sender}')
-            await asyncio.sleep(self.agent.sleep_time)
             msg = request.make_reply()
             msg.set_metadata("performative", str(Performative.AGREE.value))
             return msg
 
-        async def prepare_result_notification(self, request: Message) -> Message:
-            await asyncio.sleep(self.agent.sleep_time)
+        def prepare_result_notification(self, request: Message) -> Message:
             response: Message = request.make_reply()
             response.set_metadata("performative", str(Performative.INFORM.value))
             response.body = "Result"
@@ -61,7 +54,7 @@ class ResponderAgent(Agent):
 
 if __name__ == "__main__":
     for i in range(RESPONDERS_COUNT):
-        responder_agent = ResponderAgent(f'responder{i}@{XMPP_SERVER}', 'responder_password', i)
+        responder_agent = ResponderAgent(f'responder{i}@{XMPP_SERVER}', 'responder_password')
         future = responder_agent.start()
         future.result()
     initiator_agent = InitiatorAgent(f'initiator@{XMPP_SERVER}', 'initiator_password')

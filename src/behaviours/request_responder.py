@@ -30,7 +30,7 @@ class RequestResponder(CyclicBehaviour):
                 self._state = RequestResponderState.REQUEST_RECEIVED
             return
         if self._state == RequestResponderState.REQUEST_RECEIVED:
-            response: Message = await self.prepare_response(self._request)
+            response: Message = self.prepare_response(self._request)
             if response is not None:
                 await self.send(response)
                 if get_performative(response) == Performative.AGREE:
@@ -41,7 +41,7 @@ class RequestResponder(CyclicBehaviour):
                 self._state = RequestResponderState.AGREED
             return
         if self._state == RequestResponderState.AGREED:
-            response: Message = await self.prepare_result_notification(self._request)
+            response: Message = self.prepare_result_notification(self._request)
             await self.send(response)
             self._state = RequestResponderState.FINALIZED
             return
@@ -49,9 +49,9 @@ class RequestResponder(CyclicBehaviour):
             self._state = RequestResponderState.INITIALISED
 
     @abstractmethod
-    async def prepare_response(self, request: Message) -> Message:
+    def prepare_response(self, request: Message) -> Message:
         pass
 
     @abstractmethod
-    async def prepare_result_notification(self, request: Message) -> Message:
+    def prepare_result_notification(self, request: Message) -> Message:
         pass

@@ -40,7 +40,6 @@ class RequestInitiator(Initiator):
         if self._state == RequestInitiatorState.WAITING_FOR_RESPONSES:
             response: Message = await self.receive()
             if response is not None:
-                print(response)
                 performative: Performative = get_performative(response)
                 if performative in [Performative.INFORM, Performative.FAILURE]:
                     self._result_notifications.append(response)

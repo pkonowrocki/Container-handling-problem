@@ -31,7 +31,8 @@ class ContractNetResponder(Responder, metaclass=ABCMeta):
         if self._state == ContractNetResponderState.WAITING_FOR_PROPOSAL_RESPONSE:
             proposal_response: Message = await self.receive()
             if proposal_response is not None:
-                result_notification: Message = await self.prepare_result_notification(proposal_response)
+                if get_performative(proposal_response) == Performative.ACCEPT_PROPOSAL:
+                    result_notification: Message = await self.prepare_result_notification(proposal_response)
+                    await self.send(result_notification)
                 self._state = ContractNetResponderState.WAITING_FOR_CFP
-                await self.send(result_notification)
             return

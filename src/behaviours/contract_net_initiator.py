@@ -48,9 +48,10 @@ class ContractNetInitiator(Initiator):
 
         if self._state == ContractNetInitiatorState.ALL_RESPONSES_RECEIVED:
             acceptances: List[Message] = []
-            self.handle_all_responses(self._responses, acceptances)
+            rejections: List[Message] = []
+            self.handle_all_responses(self._responses, acceptances, rejections)
             self._expected_result_notifications_count = len(acceptances)
-            await asyncio.wait([self.send(msg) for msg in acceptances])
+            await asyncio.wait([self.send(msg) for msg in acceptances + rejections])
             self._state = ContractNetInitiatorState.WAITING_FOR_RESULT_NOTIFICATIONS
             return
 
@@ -77,7 +78,7 @@ class ContractNetInitiator(Initiator):
         pass
 
     @abstractmethod
-    def handle_all_responses(self, responses: Sequence[Message], acceptances: List[Message]):
+    def handle_all_responses(self, responses: Sequence[Message], acceptances: List[Message], rejections: List[Message]):
         pass
 
     def handle_all_result_notifications(self, result_notifications: Sequence[Message]):

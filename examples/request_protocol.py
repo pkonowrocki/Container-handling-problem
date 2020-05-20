@@ -16,7 +16,7 @@ RESPONDERS_COUNT = 4
 class InitiatorAgent(Agent):
     class InitiatorBehavior(RequestInitiator):
         def prepare_requests(self) -> Sequence[Message]:
-            return [self._prepare_request(f'responder{i}@{XMPP_SERVER}') for i in range(RESPONDERS_COUNT)]
+            return [self._prepare_request(f'responder{k}@{XMPP_SERVER}') for k in range(RESPONDERS_COUNT)]
 
         def handle_inform(self, response: Message):
             print(f'{self.agent.name}: INFORM received from {response.sender}')

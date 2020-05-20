@@ -1,10 +1,10 @@
-from abc import abstractmethod
+from abc import ABCMeta
 from enum import IntEnum
 from typing import Optional
 
-from spade.behaviour import CyclicBehaviour
 from spade.message import Message
 
+from src.behaviours.responder import Responder
 from src.utils.message_utils import get_performative
 from src.utils.performative import Performative
 
@@ -15,7 +15,7 @@ class RequestResponderState(IntEnum):
     FINALIZED = 2
 
 
-class RequestResponder(CyclicBehaviour):
+class RequestResponder(Responder, metaclass=ABCMeta):
     def __init__(self):
         super().__init__()
         self._state: RequestResponderState = RequestResponderState.WAITING_FOR_REQUEST
@@ -38,11 +38,3 @@ class RequestResponder(CyclicBehaviour):
             await self.send(response)
             self._state = RequestResponderState.WAITING_FOR_REQUEST
             return
-
-    @abstractmethod
-    def prepare_response(self, request: Message) -> Message:
-        pass
-
-    @abstractmethod
-    async def prepare_result_notification(self, request: Message) -> Message:
-        pass

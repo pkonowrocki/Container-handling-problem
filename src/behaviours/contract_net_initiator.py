@@ -35,6 +35,7 @@ class ContractNetInitiator(Initiator):
             await asyncio.wait([self.send(msg) for msg in cfps])
             self._state = ContractNetInitiatorState.WAITING_FOR_RESPONSES
             return
+
         if self._state == ContractNetInitiatorState.WAITING_FOR_RESPONSES:
             response: Message = await self.receive()
             if response is not None:
@@ -44,6 +45,7 @@ class ContractNetInitiator(Initiator):
             if self._responses_count >= self._cfps_count:
                 self._state = ContractNetInitiatorState.ALL_RESPONSES_RECEIVED
             return
+
         if self._state == ContractNetInitiatorState.ALL_RESPONSES_RECEIVED:
             acceptances: List[Message] = []
             self.handle_all_responses(self._responses, acceptances)
@@ -51,6 +53,7 @@ class ContractNetInitiator(Initiator):
             await asyncio.wait([self.send(msg) for msg in acceptances])
             self._state = ContractNetInitiatorState.WAITING_FOR_RESULT_NOTIFICATIONS
             return
+
         if self._state == ContractNetInitiatorState.WAITING_FOR_RESULT_NOTIFICATIONS:
             result_notification: Message = await self.receive()
             if result_notification is not None:
@@ -60,9 +63,11 @@ class ContractNetInitiator(Initiator):
             if self._result_notifications_count >= self._expected_result_notifications_count:
                 self._state = ContractNetInitiatorState.ALL_RESULT_NOTIFICATIONS_RECEIVED
             return
+
         if self._state == ContractNetInitiatorState.ALL_RESULT_NOTIFICATIONS_RECEIVED:
             self.handle_all_result_notifications(self._result_notifications)
             self._state = ContractNetInitiatorState.FINALIZED
+            return
 
     def _done(self) -> bool:
         return self._state == ContractNetInitiatorState.FINALIZED

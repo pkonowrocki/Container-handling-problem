@@ -7,7 +7,7 @@ from src.ontology.ontology import Ontology
 
 
 class BaseAgent(Agent):
-    def __init__(self, jid: str, password: str, ontologies: Sequence[Ontology]):
+    def __init__(self, jid: str, password: str, ontologies: Sequence[Ontology] = ()):
         super().__init__(jid, password)
         self._content_manager = ContentManager()
         for onto in ontologies:

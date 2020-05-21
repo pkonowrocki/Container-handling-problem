@@ -2,9 +2,9 @@ import asyncio
 import random
 from typing import Sequence
 
-from spade.agent import Agent
 from spade.message import Message
 
+from src.agents.base_agent import BaseAgent
 from src.behaviours.request_initiator import RequestInitiator
 from src.behaviours.request_responder import RequestResponder
 from src.utils.performative import Performative
@@ -13,7 +13,7 @@ XMPP_SERVER = 'andzelika-thinkpad-t470s-w10dg'
 RESPONDERS_COUNT = 4
 
 
-class InitiatorAgent(Agent):
+class InitiatorAgent(BaseAgent):
     class InitiatorBehavior(RequestInitiator):
         def prepare_requests(self) -> Sequence[Message]:
             return [self._prepare_request(f'responder{k}@{XMPP_SERVER}') for k in range(RESPONDERS_COUNT)]
@@ -34,7 +34,7 @@ class InitiatorAgent(Agent):
         self.add_behaviour(self.InitiatorBehavior())
 
 
-class ResponderAgent(Agent):
+class ResponderAgent(BaseAgent):
     class ResponderBehaviour(RequestResponder):
         def prepare_response(self, request: Message) -> Message:
             print(f'{self.agent.name}: REQUEST received from {request.sender}')

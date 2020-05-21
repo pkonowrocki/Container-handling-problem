@@ -1,4 +1,5 @@
 import asyncio
+import random
 from typing import Sequence
 
 from spade.agent import Agent
@@ -15,53 +16,46 @@ RESPONDERS_COUNT = 4
 class InitiatorAgent(Agent):
     class InitiatorBehavior(RequestInitiator):
         def prepare_requests(self) -> Sequence[Message]:
-            return [self._prepare_request(f'responder{i}@{XMPP_SERVER}') for i in range(RESPONDERS_COUNT)]
+            return [self._prepare_request(f'responder{k}@{XMPP_SERVER}') for k in range(RESPONDERS_COUNT)]
 
         def handle_inform(self, response: Message):
-            print(f'INFORM received from {response.sender}')
+            print(f'{self.agent.name}: INFORM received from {response.sender}')
 
         def handle_agree(self, response: Message):
-            print(f'AGREE received from {response.sender}')
+            print(f'{self.agent.name}: AGREE received from {response.sender}')
 
         def _prepare_request(self, receiver: str) -> Message:
             msg = Message(to=receiver)
-            msg.set_metadata("performative", str(Performative.REQUEST))
-            msg.body = "Request"
+            msg.set_metadata("performative", str(Performative.REQUEST.value))
             return msg
 
     async def setup(self):
-        print(f'Hello, I\'m {self.name}')
+        print(f'{self.name}: Hello, I\'m {self.name}')
         self.add_behaviour(self.InitiatorBehavior())
 
 
 class ResponderAgent(Agent):
-    def __init__(self, jid, password, sleep_time):
-        super().__init__(jid, password)
-        self.sleep_time = sleep_time
-
     class ResponderBehaviour(RequestResponder):
-        async def prepare_response(self, request: Message) -> Message:
-            print(f'REQUEST received from {request.sender}')
-            await asyncio.sleep(self.agent.sleep_time)
+        def prepare_response(self, request: Message) -> Message:
+            print(f'{self.agent.name}: REQUEST received from {request.sender}')
             msg = request.make_reply()
             msg.set_metadata("performative", str(Performative.AGREE.value))
             return msg
 
         async def prepare_result_notification(self, request: Message) -> Message:
-            await asyncio.sleep(self.agent.sleep_time)
-            response: Message = request.make_reply()
+            await asyncio.sleep(random.randint(1, 4))
+            response: Message = Message(to=str(request.sender))
             response.set_metadata("performative", str(Performative.INFORM.value))
-            response.body = "Result"
             return response
 
     async def setup(self):
-        print(f'Hello, I\'m {self.name}')
+        print(f'{self.name}: Hello, I\'m {self.name}')
         self.add_behaviour(self.ResponderBehaviour())
 
 
 if __name__ == "__main__":
     for i in range(RESPONDERS_COUNT):
-        responder_agent = ResponderAgent(f'responder{i}@{XMPP_SERVER}', 'responder_password', i)
+        responder_agent = ResponderAgent(f'responder{i}@{XMPP_SERVER}', 'responder_password')
         future = responder_agent.start()
         future.result()
     initiator_agent = InitiatorAgent(f'initiator@{XMPP_SERVER}', 'initiator_password')

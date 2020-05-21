@@ -25,7 +25,8 @@ class InitiatorAgent(BaseAgent):
         def handle_refuse(self, response: Message):
             print(f'{self.agent.name}: REFUSE received from {response.sender}')
 
-        def handle_all_responses(self, responses: Sequence[Message], acceptances: List[Message], rejections: List[Message]):
+        def handle_all_responses(self, responses: Sequence[Message], acceptances: List[Message],
+                                 rejections: List[Message]):
             proposals: Sequence[Message] = [msg for msg in responses if get_performative(msg) == Performative.PROPOSE]
             min_price: int = min(int(msg.body) for msg in proposals)
             best_proposals: Sequence[Message] = [msg for msg in proposals if int(msg.body) == min_price]

@@ -1,8 +1,8 @@
 from dataclasses import dataclass
-from spade.message import Message
 
 from src.ontology.content_manager import ContentManager
 from src.ontology.ontology import Ontology, ContentElement
+from src.utils.acl_message import ACLMessage
 from src.utils.nested_dataclass import nested_dataclass
 from src.utils.singleton import Singleton
 
@@ -40,11 +40,11 @@ content_manager.register_ontology(book_shop_ontology)
 book: Book = Book('4.50 from Paddington', Author('Agatha', 'Christie'), 150)
 print(f'Initial book object:\n{book}\n')
 
-msg: Message = Message(
+msg: ACLMessage = ACLMessage(
     to='receiver@host',
     sender='sender@host',
 )
-msg.set_metadata('ontology', book_shop_ontology.name)
+msg.ontology = book_shop_ontology.name
 content_manager.fill_content(book, msg)
 print(f'Book as message body:\n{msg.body}\n')
 

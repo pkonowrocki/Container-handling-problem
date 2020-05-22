@@ -3,10 +3,8 @@ from abc import abstractmethod
 from enum import IntEnum
 from typing import Sequence
 
-from spade.message import Message
-
 from src.behaviours.initiator import Initiator
-from src.utils.message_utils import get_performative
+from src.utils.acl_message import ACLMessage
 from src.utils.performative import Performative
 
 
@@ -30,7 +28,7 @@ class RequestInitiator(Initiator):
 
     async def run(self):
         if self._state == RequestInitiatorState.INITIALISED:
-            requests: Sequence[Message] = self.prepare_requests()
+            requests: Sequence[ACLMessage] = self.prepare_requests()
             self._requests_count = len(requests)
             self._expected_result_notifications_count = len(requests)
             await asyncio.wait([self.send(msg) for msg in requests])
@@ -38,16 +36,15 @@ class RequestInitiator(Initiator):
             return
 
         if self._state == RequestInitiatorState.WAITING_FOR_RESPONSES:
-            response: Message = await self.receive()
+            response: ACLMessage = await self.receive()
             if response is not None:
-                performative: Performative = get_performative(response)
-                if performative in [Performative.INFORM, Performative.FAILURE]:
+                if response.performative in [Performative.INFORM, Performative.FAILURE]:
                     self._result_notifications.append(response)
                     self._result_notifications_count += 1
-                elif performative in [Performative.AGREE, Performative.NOT_UNDERSTOOD, Performative.REFUSE]:
+                elif response.performative in [Performative.AGREE, Performative.NOT_UNDERSTOOD, Performative.REFUSE]:
                     self._responses.append(response)
                     self._responses_count += 1
-                    if performative != Performative.AGREE:
+                    if response.performative != Performative.AGREE:
                         self._expected_result_notifications_count -= 1
                     if self._responses_count >= self._requests_count:
                         self.handle_all_responses(self._responses)
@@ -65,11 +62,11 @@ class RequestInitiator(Initiator):
         return self._state == RequestInitiatorState.FINALIZED
 
     @abstractmethod
-    def prepare_requests(self) -> Sequence[Message]:
+    def prepare_requests(self) -> Sequence[ACLMessage]:
         pass
 
-    def handle_all_responses(self, responses: Sequence[Message]):
+    def handle_all_responses(self, responses: Sequence[ACLMessage]):
         pass
 
-    def handle_all_result_notifications(self, result_notifications: Sequence[Message]):
+    def handle_all_result_notifications(self, result_notifications: Sequence[ACLMessage]):
         pass

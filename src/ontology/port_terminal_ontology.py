@@ -18,6 +18,12 @@ class AllocationProposal(ContentElement):
     __key__ = 'allocation_proposal'
 
 
+@dataclass
+class AllocationConfirmation(ContentElement):
+    slot_id: str
+    __key__ = 'allocation_confirmation'
+
+
 @Singleton
 class PortTerminalOntology(Ontology):
     def __init__(self):
@@ -25,3 +31,4 @@ class PortTerminalOntology(Ontology):
         # TODO: Add more content elements when needed
         self.add(ContainerData)
         self.add(AllocationProposal)
+        self.add(AllocationConfirmation)

@@ -3,9 +3,8 @@ from abc import abstractmethod
 from enum import IntEnum
 from typing import Sequence, List
 
-from spade.message import Message
-
 from src.behaviours.initiator import Initiator
+from src.utils.acl_message import ACLMessage
 
 
 class ContractNetInitiatorState(IntEnum):
@@ -30,14 +29,14 @@ class ContractNetInitiator(Initiator):
 
     async def run(self):
         if self._state == ContractNetInitiatorState.PREPARE_CFPS:
-            cfps: Sequence[Message] = self.prepare_cfps()
+            cfps: Sequence[ACLMessage] = self.prepare_cfps()
             self._cfps_count = len(cfps)
             await asyncio.wait([self.send(msg) for msg in cfps])
             self._state = ContractNetInitiatorState.WAITING_FOR_RESPONSES
             return
 
         if self._state == ContractNetInitiatorState.WAITING_FOR_RESPONSES:
-            response: Message = await self.receive()
+            response: ACLMessage = await self.receive()
             if response is not None:
                 self._handle_single_message(response)
                 self._responses.append(response)
@@ -47,8 +46,8 @@ class ContractNetInitiator(Initiator):
             return
 
         if self._state == ContractNetInitiatorState.ALL_RESPONSES_RECEIVED:
-            acceptances: List[Message] = []
-            rejections: List[Message] = []
+            acceptances: List[ACLMessage] = []
+            rejections: List[ACLMessage] = []
             self.handle_all_responses(self._responses, acceptances, rejections)
             self._expected_result_notifications_count = len(acceptances)
             await asyncio.wait([self.send(msg) for msg in acceptances + rejections])
@@ -56,7 +55,7 @@ class ContractNetInitiator(Initiator):
             return
 
         if self._state == ContractNetInitiatorState.WAITING_FOR_RESULT_NOTIFICATIONS:
-            result_notification: Message = await self.receive()
+            result_notification: ACLMessage = await self.receive()
             if result_notification is not None:
                 self._handle_single_message(result_notification)
                 self._result_notifications.append(result_notification)
@@ -74,12 +73,13 @@ class ContractNetInitiator(Initiator):
         return self._state == ContractNetInitiatorState.FINALIZED
 
     @abstractmethod
-    def prepare_cfps(self) -> Sequence[Message]:
+    def prepare_cfps(self) -> Sequence[ACLMessage]:
         pass
 
     @abstractmethod
-    def handle_all_responses(self, responses: Sequence[Message], acceptances: List[Message], rejections: List[Message]):
+    def handle_all_responses(self, responses: Sequence[ACLMessage], acceptances: List[ACLMessage],
+                             rejections: List[ACLMessage]):
         pass
 
-    def handle_all_result_notifications(self, result_notifications: Sequence[Message]):
+    def handle_all_result_notifications(self, result_notifications: Sequence[ACLMessage]):
         pass

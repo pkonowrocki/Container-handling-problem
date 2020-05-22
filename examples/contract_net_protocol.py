@@ -2,9 +2,9 @@ import asyncio
 import random
 from typing import Sequence, List
 
-from spade.agent import Agent
 from spade.message import Message
 
+from src.agents.base_agent import BaseAgent
 from src.behaviours.contract_net_initiator import ContractNetInitiator
 from src.behaviours.contract_net_responder import ContractNetResponder
 from src.utils.message_utils import get_performative
@@ -14,7 +14,7 @@ XMPP_SERVER = 'andzelika-thinkpad-t470s-w10dg'
 RESPONDERS_COUNT = 4
 
 
-class InitiatorAgent(Agent):
+class InitiatorAgent(BaseAgent):
     class InitiatorBehavior(ContractNetInitiator):
         def prepare_cfps(self) -> Sequence[Message]:
             return [self._prepare_cfp(f'responder{k}@{XMPP_SERVER}') for k in range(RESPONDERS_COUNT)]
@@ -25,7 +25,8 @@ class InitiatorAgent(Agent):
         def handle_refuse(self, response: Message):
             print(f'{self.agent.name}: REFUSE received from {response.sender}')
 
-        def handle_all_responses(self, responses: Sequence[Message], acceptances: List[Message], rejections: List[Message]):
+        def handle_all_responses(self, responses: Sequence[Message], acceptances: List[Message],
+                                 rejections: List[Message]):
             proposals: Sequence[Message] = [msg for msg in responses if get_performative(msg) == Performative.PROPOSE]
             min_price: int = min(int(msg.body) for msg in proposals)
             best_proposals: Sequence[Message] = [msg for msg in proposals if int(msg.body) == min_price]
@@ -52,7 +53,7 @@ class InitiatorAgent(Agent):
         self.add_behaviour(self.InitiatorBehavior())
 
 
-class ResponderAgent(Agent):
+class ResponderAgent(BaseAgent):
     class ResponderBehaviour(ContractNetResponder):
         def prepare_response(self, request: Message) -> Message:
             print(f'{self.agent.name}: REQUEST received from {request.sender}')

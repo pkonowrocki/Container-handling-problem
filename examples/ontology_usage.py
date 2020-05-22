@@ -4,6 +4,7 @@ from spade.message import Message
 from src.ontology.content_manager import ContentManager
 from src.ontology.ontology import Ontology, ContentElement
 from src.utils.nested_dataclass import nested_dataclass
+from src.utils.singleton import Singleton
 
 
 # Define custom ontology
@@ -22,6 +23,7 @@ class Book(ContentElement):
     __key__ = 'book'
 
 
+@Singleton
 class BookShopOntology(Ontology):
     def __init__(self):
         super().__init__('Book Shop Ontology')
@@ -31,7 +33,7 @@ class BookShopOntology(Ontology):
 
 # Create content manager and register ontology
 content_manager = ContentManager()
-book_shop_ontology = BookShopOntology()
+book_shop_ontology = BookShopOntology.instance()
 content_manager.register_ontology(book_shop_ontology)
 
 # Test book serialization and deserialization

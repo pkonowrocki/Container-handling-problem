@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from src.ontology.ontology import Ontology, ContentElement
+from src.utils.singleton import Singleton
 
 
 @dataclass
@@ -17,6 +18,7 @@ class AllocationProposal(ContentElement):
     __key__ = 'allocation_proposal'
 
 
+@Singleton
 class PortTerminalOntology(Ontology):
     def __init__(self):
         super().__init__('port_terminal_ontology')

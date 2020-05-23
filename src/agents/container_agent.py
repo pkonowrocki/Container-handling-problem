@@ -114,6 +114,7 @@ class ContainerAgent(BaseAgent):
         allocation_mt.set_metadata('protocol', 'ContractNet')
         self.add_behaviour(AllocationInitiator(), allocation_mt)
         self.add_behaviour(DeallocationLauncher(self.departure_time))
+        self.log(f'Container agent for {self.name} started.')
 
     @property
     def slot_manager_agents_jids(self) -> Sequence[str]:

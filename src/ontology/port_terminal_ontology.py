@@ -19,10 +19,16 @@ class AllocationProposal(ContentElement):
     __key__ = 'allocation_proposal'
 
 
-@nested_dataclass
+@dataclass
 class AllocationConfirmation(ContentElement):
-    container_data: ContainerData
+    slot_id: str
     __key__ = 'allocation_confirmation'
+
+
+@nested_dataclass
+class AllocationProposalAcceptance(ContentElement):
+    container_data: ContainerData
+    __key__ = 'allocation_proposal_acceptance'
 
 
 @Singleton
@@ -33,3 +39,4 @@ class PortTerminalOntology(Ontology):
         self.add(ContainerData)
         self.add(AllocationProposal)
         self.add(AllocationConfirmation)
+        self.add(AllocationProposalAcceptance)

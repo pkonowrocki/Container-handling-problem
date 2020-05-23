@@ -29,7 +29,7 @@ class ContractNetInitiator(Initiator):
 
     async def run(self):
         if self._state == ContractNetInitiatorState.PREPARE_CFPS:
-            cfps: Sequence[ACLMessage] = self.prepare_cfps()
+            cfps: Sequence[ACLMessage] = await self.prepare_cfps()
             self._cfps_count = len(cfps)
             await asyncio.wait([self.send(msg) for msg in cfps])
             self._state = ContractNetInitiatorState.WAITING_FOR_RESPONSES
@@ -73,7 +73,7 @@ class ContractNetInitiator(Initiator):
         return self._state == ContractNetInitiatorState.FINALIZED
 
     @abstractmethod
-    def prepare_cfps(self) -> Sequence[ACLMessage]:
+    async def prepare_cfps(self) -> Sequence[ACLMessage]:
         pass
 
     @abstractmethod

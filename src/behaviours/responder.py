@@ -8,7 +8,7 @@ from src.utils.acl_message import ACLMessage
 
 class Responder(CyclicBehaviour, metaclass=ABCMeta):
     @abstractmethod
-    def prepare_response(self, request: ACLMessage) -> ACLMessage:
+    async def prepare_response(self, request: ACLMessage) -> ACLMessage:
         pass
 
     @abstractmethod

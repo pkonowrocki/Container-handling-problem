@@ -20,7 +20,7 @@ class ContractNetResponder(Responder, metaclass=ABCMeta):
         if self._state == ContractNetResponderState.WAITING_FOR_CFP:
             cfp: ACLMessage = await self.receive()
             if cfp is not None:
-                response: ACLMessage = self.prepare_response(cfp)
+                response: ACLMessage = await self.prepare_response(cfp)
                 if response.performative == Performative.PROPOSE:
                     self._state = ContractNetResponderState.WAITING_FOR_PROPOSAL_RESPONSE
                 await self.send(response)

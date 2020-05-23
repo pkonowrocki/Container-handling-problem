@@ -87,6 +87,7 @@ class SlotManagerAgent(BaseAgent):
         deallocation_mt.set_metadata('protocol', 'Request')
         self.add_behaviour(AllocationResponder(), allocation_mt)
         self.add_behaviour(DeallocationResponder(), deallocation_mt)
+        self.log(f'Slot manager agent for slot no {self.slot_id} started')
 
     @property
     def slot_id(self) -> str:

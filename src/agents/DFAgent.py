@@ -1,58 +1,15 @@
 import sys
-from dataclasses import dataclass
 from enum import IntEnum
-from typing import Sequence, Dict, Optional
+from typing import Sequence, Optional
 
 from spade.agent import Agent
 from spade.behaviour import *
 
 from src.ontology.content_manager import ContentManager
-from src.ontology.ontology import Ontology, ContentElement
+from src.ontology.directory_facilitator_ontology import DFAgentDescription, DFAgentDescriptionList, \
+    RegisterServiceOntology, DeleteServiceOntology, SearchServiceResponseOntology, SearchServiceRequestOntology
+from src.ontology.ontology import Ontology
 from src.utils.message_utils import *
-from src.utils.nested_dataclass import nested_dataclass
-
-
-@dataclass
-class ServiceDescription(ContentElement):
-    properties: Dict[str, object]
-
-
-@nested_dataclass
-class DFAgentDescription(ContentElement):
-    agentName: str
-    interactionProtocol: str
-    ontology: str
-    language: str
-    service: ServiceDescription
-
-
-@nested_dataclass
-class DFAgentDescriptionList(ContentElement):
-    list: Sequence[DFAgentDescription]
-
-
-class RegisterServiceOntology(Ontology):
-    def __init__(self):
-        super().__init__('RegisterServiceOntology')
-        self.add(DFAgentDescription)
-
-
-class SearchServiceRequestOntology(Ontology):
-    def __init__(self):
-        super().__init__('SearchServiceRequestOntology')
-        self.add(DFAgentDescription)
-
-
-class SearchServiceResponseOntology(Ontology):
-    def __init__(self):
-        super().__init__('SearchServiceResponseOntology')
-        self.add(DFAgentDescriptionList)
-
-
-class DeleteServiceOntology(Ontology):
-    def __init__(self):
-        super().__init__('DeleteServiceOntology')
-        self.add(DFAgentDescription)
 
 
 class DFAgent(Agent):

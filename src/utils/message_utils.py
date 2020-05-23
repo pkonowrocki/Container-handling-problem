@@ -7,6 +7,10 @@ from src.utils.performative import Performative
 def get_performative(msg: Message) -> Performative:
     return Performative(int(msg.get_metadata("performative")))
 
+def set_performative(msg: Message, performative: Performative) -> Message:
+    msg.set_metadata("performative", performative.value)
+    return msg
+
 def get_language(msg: Message) -> str:
     return msg.get_metadata("language")
 

@@ -1,7 +1,6 @@
 from abc import ABC
-from typing import Dict, Type
-
 from dataclasses import dataclass
+from typing import Dict, Type
 
 
 @dataclass

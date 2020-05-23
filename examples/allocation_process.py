@@ -8,7 +8,6 @@ CONTAINERS_COUNT = 12
 SLOTS_COUNT = 4
 MAX_HEIGHT = 4
 
-
 if __name__ == "__main__":
     slot_manager_agents_jids = [f'slot_{i}@{XMPP_SERVER}' for i in range(SLOTS_COUNT)]
 
@@ -18,7 +17,7 @@ if __name__ == "__main__":
         future.result()
     for i in range(CONTAINERS_COUNT):
         departure_time = str(datetime.now() + timedelta(0, 0, 0, 0, 0, i + 1))
-        container_agent = ContainerAgent(f'container{i}@{XMPP_SERVER}', 'container_password', slot_manager_agents_jids,
+        container_agent = ContainerAgent(f'container_{i}@{XMPP_SERVER}', 'container_password', slot_manager_agents_jids,
                                          departure_time)
         future = container_agent.start()
         future.result()

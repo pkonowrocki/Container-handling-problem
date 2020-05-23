@@ -53,7 +53,8 @@ class AllocationInitiator(ContractNetInitiator):
 
         best_proposal: ACLMessage = min(proposals, key=fetch_allocation_eval)
         acceptance = best_proposal.create_reply(Performative.ACCEPT_PROPOSAL)
-        acceptance_content: ContentElement = AllocationProposalAcceptance(ContainerData(self.agent.jid, self.agent.departure_time))
+        acceptance_content: ContentElement = AllocationProposalAcceptance(
+            ContainerData(self.agent.jid, self.agent.departure_time))
         self.agent.content_manager.fill_content(acceptance_content, acceptance)
         acceptances.append(acceptance)
         for msg in proposals:

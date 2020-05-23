@@ -17,7 +17,8 @@ from src.utils.performative import Performative
 
 class AllocationInitiator(ContractNetInitiator):
     async def prepare_cfps(self) -> Sequence[ACLMessage]:
-        return [self._create_cfp(jid) for jid in self.agent.slot_manager_agents_jids]
+        cfps = [self._create_cfp(jid) for jid in self.agent.slot_manager_agents_jids]
+        return cfps
 
     def handle_all_responses(self, responses: Sequence[ACLMessage], acceptances: List[ACLMessage],
                              rejections: List[ACLMessage]):

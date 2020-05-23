@@ -1,3 +1,6 @@
+from asyncio import Lock
+from typing import Optional
+
 from spade.agent import Agent
 
 from src.ontology.content_manager import ContentManager
@@ -9,6 +12,7 @@ class BaseAgent(Agent):
         super().__init__(jid, password)
         self._content_manager = ContentManager()
         self._ontology = ontology
+        self._lock: Optional[Lock] = None
         if ontology is not None:
             self._content_manager.register_ontology(ontology)
 
@@ -22,3 +26,11 @@ class BaseAgent(Agent):
 
     def log(self, text: str):
         print(f'{self.name}: {text}')
+
+    async def acquire_lock(self):
+        if self._lock:
+            await self._lock.acquire()
+
+    def release_lock(self):
+        if self._lock:
+            self._lock.release()

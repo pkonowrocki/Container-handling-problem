@@ -23,16 +23,18 @@ class RequestResponder(Responder, metaclass=ABCMeta):
         if self._state == RequestResponderState.WAITING_FOR_REQUEST:
             request: ACLMessage = await self.receive()
             if request is not None:
+                await self.agent.acquire_lock()
                 self._request = request
                 response: ACLMessage = await self.prepare_response(request)
                 if response.performative == Performative.AGREE:
                     self._state = RequestResponderState.REQUEST_AGREED
                 else:
-                    self._state = RequestResponderState.WAITING_FOR_REQUEST
+                    self.agent.release_lock()
                 await self.send(response)
             return
         if self._state == RequestResponderState.REQUEST_AGREED:
             response: ACLMessage = await self.prepare_result_notification(self._request)
+            self.agent.release_lock()
             await self.send(response)
             self._state = RequestResponderState.WAITING_FOR_REQUEST
             return

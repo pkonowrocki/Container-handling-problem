@@ -1,3 +1,4 @@
+from asyncio import Lock
 from datetime import datetime
 from typing import List, NamedTuple
 
@@ -85,6 +86,7 @@ class SlotManagerAgent(BaseAgent):
         allocation_mt.set_metadata('protocol', 'ContractNet')
         deallocation_mt = Template()
         deallocation_mt.set_metadata('protocol', 'Request')
+        self._lock = Lock()
         self.add_behaviour(AllocationResponder(), allocation_mt)
         self.add_behaviour(DeallocationResponder(), deallocation_mt)
         self.log(f'Slot manager agent for slot no {self.slot_id} started')

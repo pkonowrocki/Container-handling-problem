@@ -20,15 +20,19 @@ class ContractNetResponder(Responder, metaclass=ABCMeta):
         if self._state == ContractNetResponderState.WAITING_FOR_CFP:
             cfp: ACLMessage = await self.receive()
             if cfp is not None:
+                await self.agent.acquire_lock()
                 response: ACLMessage = await self.prepare_response(cfp)
                 if response.performative == Performative.PROPOSE:
                     self._state = ContractNetResponderState.WAITING_FOR_PROPOSAL_RESPONSE
+                else:
+                    self.agent.release_lock()
                 await self.send(response)
             return
 
         if self._state == ContractNetResponderState.WAITING_FOR_PROPOSAL_RESPONSE:
             proposal_response: ACLMessage = await self.receive()
             if proposal_response is not None:
+                self.agent.release_lock()
                 if proposal_response.performative == Performative.ACCEPT_PROPOSAL:
                     result_notification: ACLMessage = await self.prepare_result_notification(proposal_response)
                     await self.send(result_notification)

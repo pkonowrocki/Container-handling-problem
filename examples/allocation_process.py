@@ -18,6 +18,7 @@ async def run_container(i: int, delay: int):
     future = container_agent.start()
     future.result()
 
+
 if __name__ == "__main__":
     slot_manager_agents_jids = [f'slot_{i}@{XMPP_SERVER}' for i in range(SLOTS_COUNT)]
 

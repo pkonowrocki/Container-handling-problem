@@ -11,7 +11,8 @@ from src.ontology.directory_facilitator_ontology import DFAgentDescription, \
     SearchServiceResponse, RegisterService, DeregisterService, DFOntology, SearchServiceRequest
 from src.ontology.ontology import Action
 from src.utils.acl_message import ACLMessage
-from src.utils.message_utils import *
+from src.utils.jid_utils import jid_to_str
+from src.utils.performative import Performative
 
 
 class DFAgent(BaseAgent):
@@ -219,7 +220,7 @@ class HandleSearchBehaviour(HandlerBehaviour):
                 self.state = HandleSearchBehaviour.CommunicationState.WAIT_FOR_RESPONSE
         elif self.state == HandleSearchBehaviour.CommunicationState.WAIT_FOR_RESPONSE:
             random: Optional[ACLMessage] = await self.receive()
-            if random is not None and get_ontology(random) == DFService.DFServiceOntology.name and \
+            if random is not None and random.ontology == DFService.DFServiceOntology.name and \
                     random.action == SearchServiceResponse.__key__:
                 self.result: SearchServiceResponse = self.contentManager.extract_content(random)
                 if self.result:

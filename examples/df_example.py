@@ -8,11 +8,12 @@ from spade.behaviour import OneShotBehaviour
 from spade.message import Message
 
 from src.agents.DFAgent import HandleRegisterRequestBehaviour, HandleSearchBehaviour, \
-    HandleDeregisterRequestBehaviour, jid_to_str, DFAgentDescription, DFService, DFAgent
+    HandleDeregisterRequestBehaviour, DFAgentDescription, DFService, DFAgent
 from src.agents.base_agent import BaseAgent
 from src.ontology.directory_facilitator_ontology import ServiceDescription
 from src.utils.interaction_protocol import InteractionProtocol
 from src.utils.content_language import ContentLanguage
+from src.utils.jid_utils import jid_to_str
 
 XMPP_SERVER = 'host.docker.internal'
 

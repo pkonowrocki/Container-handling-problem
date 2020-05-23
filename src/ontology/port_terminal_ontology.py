@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from src.ontology.ontology import Ontology, ContentElement
+from src.utils.nested_dataclass import nested_dataclass
 from src.utils.singleton import Singleton
 
 
@@ -14,13 +15,13 @@ class ContainerData(ContentElement):
 @dataclass
 class AllocationProposal(ContentElement):
     slot_id: str
-    time_to_forced_reallocation: int
+    seconds_from_forced_reallocation_to_departure: int
     __key__ = 'allocation_proposal'
 
 
-@dataclass
+@nested_dataclass
 class AllocationConfirmation(ContentElement):
-    slot_id: str
+    container_data: ContainerData
     __key__ = 'allocation_confirmation'
 
 

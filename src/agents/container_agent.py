@@ -24,6 +24,7 @@ class AllocationInitiator(ContractNetInitiator):
     def handle_inform(self, response: ACLMessage):
         content: ContentElement = self.agent.content_manager.extract_content(response)
         if isinstance(content, AllocationConfirmation):
+            self.agent.log('Container successfully allocated')
             self.agent.slot_id = content.slot_id
             self.agent.release_lock()
         else:
@@ -49,13 +50,13 @@ class AllocationInitiator(ContractNetInitiator):
 
     def _create_proposals_replies(self, proposals: Sequence[ACLMessage], acceptances: List[ACLMessage],
                                   rejections: List[ACLMessage]):
-        def fetch_time_to_forced_reallocation(msg: ACLMessage) -> float:
+        def fetch_allocation_eval(msg: ACLMessage) -> float:
             content: ContentElement = self.agent.content_manager.extract_content(msg)
             if isinstance(content, AllocationProposal):
-                return content.time_to_forced_reallocation
+                return content.seconds_from_forced_reallocation_to_departure
             return math.inf
 
-        best_proposal: ACLMessage = max(proposals, key=fetch_time_to_forced_reallocation)
+        best_proposal: ACLMessage = min(proposals, key=fetch_allocation_eval)
         acceptances.append(best_proposal.create_reply(Performative.ACCEPT_PROPOSAL))
         for msg in proposals:
             if msg.id != best_proposal.id:
@@ -69,6 +70,9 @@ class ContainerAgent(BaseAgent):
         self._slot_manager_agents_jids = slot_manager_agents_jids  # TODO: Replace this line with fetching jids from DF
         self._departure_time = departure_time
         self._slot_id = None
+
+    def setup(self):
+        self.add_behaviour(AllocationInitiator())
 
     @property
     def slot_manager_agents_jids(self) -> Sequence[str]:

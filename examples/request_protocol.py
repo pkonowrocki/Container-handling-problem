@@ -2,11 +2,10 @@ import asyncio
 import random
 from typing import Sequence
 
-from spade.message import Message
-
 from src.agents.base_agent import BaseAgent
 from src.behaviours.request_initiator import RequestInitiator
 from src.behaviours.request_responder import RequestResponder
+from src.utils.acl_message import ACLMessage
 from src.utils.performative import Performative
 
 XMPP_SERVER = 'andzelika-thinkpad-t470s-w10dg'
@@ -15,18 +14,18 @@ RESPONDERS_COUNT = 4
 
 class InitiatorAgent(BaseAgent):
     class InitiatorBehavior(RequestInitiator):
-        def prepare_requests(self) -> Sequence[Message]:
+        def prepare_requests(self) -> Sequence[ACLMessage]:
             return [self._prepare_request(f'responder{k}@{XMPP_SERVER}') for k in range(RESPONDERS_COUNT)]
 
-        def handle_inform(self, response: Message):
+        def handle_inform(self, response: ACLMessage):
             print(f'{self.agent.name}: INFORM received from {response.sender}')
 
-        def handle_agree(self, response: Message):
+        def handle_agree(self, response: ACLMessage):
             print(f'{self.agent.name}: AGREE received from {response.sender}')
 
-        def _prepare_request(self, receiver: str) -> Message:
-            msg = Message(to=receiver)
-            msg.set_metadata("performative", str(Performative.REQUEST.value))
+        def _prepare_request(self, receiver: str) -> ACLMessage:
+            msg = ACLMessage(to=receiver)
+            msg.performative = Performative.REQUEST
             return msg
 
     async def setup(self):
@@ -36,16 +35,14 @@ class InitiatorAgent(BaseAgent):
 
 class ResponderAgent(BaseAgent):
     class ResponderBehaviour(RequestResponder):
-        def prepare_response(self, request: Message) -> Message:
+        def prepare_response(self, request: ACLMessage) -> ACLMessage:
             print(f'{self.agent.name}: REQUEST received from {request.sender}')
-            msg = request.make_reply()
-            msg.set_metadata("performative", str(Performative.AGREE.value))
-            return msg
+            return request.create_reply(Performative.AGREE)
 
-        async def prepare_result_notification(self, request: Message) -> Message:
+        async def prepare_result_notification(self, request: ACLMessage) -> ACLMessage:
             await asyncio.sleep(random.randint(1, 4))
-            response: Message = Message(to=str(request.sender))
-            response.set_metadata("performative", str(Performative.INFORM.value))
+            response: ACLMessage = ACLMessage(to=str(request.sender))
+            response.performative = Performative.INFORM
             return response
 
     async def setup(self):

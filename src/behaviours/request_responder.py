@@ -2,10 +2,8 @@ from abc import ABCMeta
 from enum import IntEnum
 from typing import Optional
 
-from spade.message import Message
-
 from src.behaviours.responder import Responder
-from src.utils.message_utils import get_performative
+from src.utils.acl_message import ACLMessage
 from src.utils.performative import Performative
 
 
@@ -19,22 +17,22 @@ class RequestResponder(Responder, metaclass=ABCMeta):
     def __init__(self):
         super().__init__()
         self._state: RequestResponderState = RequestResponderState.WAITING_FOR_REQUEST
-        self._request: Optional[Message] = None
+        self._request: Optional[ACLMessage] = None
 
     async def run(self):
         if self._state == RequestResponderState.WAITING_FOR_REQUEST:
-            request: Message = await self.receive()
+            request: ACLMessage = await self.receive()
             if request is not None:
                 self._request = request
-                response: Message = self.prepare_response(request)
-                if get_performative(response) == Performative.AGREE:
+                response: ACLMessage = self.prepare_response(request)
+                if response.performative == Performative.AGREE:
                     self._state = RequestResponderState.REQUEST_AGREED
                 else:
                     self._state = RequestResponderState.WAITING_FOR_REQUEST
                 await self.send(response)
             return
         if self._state == RequestResponderState.REQUEST_AGREED:
-            response: Message = await self.prepare_result_notification(self._request)
+            response: ACLMessage = await self.prepare_result_notification(self._request)
             await self.send(response)
             self._state = RequestResponderState.WAITING_FOR_REQUEST
             return

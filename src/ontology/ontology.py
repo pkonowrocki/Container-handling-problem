@@ -1,7 +1,7 @@
+from abc import ABC
+from dataclasses import dataclass
 from abc import abstractmethod
 from typing import Dict, Type
-
-from dataclasses import dataclass
 
 
 @dataclass
@@ -14,7 +14,7 @@ class Action(ContentElement):
     __key__ = 'action'
 
 
-class Ontology:
+class Ontology(ABC):
     def __init__(self, name: str):
         self._concepts: Dict[str, Type[ContentElement]] = {}
         self._name: str = name

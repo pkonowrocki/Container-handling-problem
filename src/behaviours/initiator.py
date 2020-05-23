@@ -2,16 +2,14 @@ from abc import ABCMeta
 from typing import Dict, Callable, Optional
 
 from spade.behaviour import CyclicBehaviour
-from spade.message import Message
 
-from src.utils.message_utils import get_performative
+from src.utils.acl_message import ACLMessage
 from src.utils.performative import Performative
 
 
 class Initiator(CyclicBehaviour, metaclass=ABCMeta):
-    def _handle_single_message(self, msg: Message) -> None:
-        performative: Performative = get_performative(msg)
-        handlers_dict: Dict[Performative, Callable[[Message], None]] = {
+    def _handle_single_message(self, msg: ACLMessage) -> None:
+        handlers_dict: Dict[Performative, Callable[[ACLMessage], None]] = {
             Performative.AGREE: self.handle_agree,
             Performative.PROPOSE: self.handle_propose,
             Performative.REFUSE: self.handle_refuse,
@@ -19,24 +17,30 @@ class Initiator(CyclicBehaviour, metaclass=ABCMeta):
             Performative.INFORM: self.handle_inform,
             Performative.FAILURE: self.handle_failure
         }
-        handler: Optional[Callable[[Message], None]] = handlers_dict.get(performative)
+        handler: Optional[Callable[[ACLMessage], None]] = handlers_dict.get(msg.performative)
         if handler is not None:
             handler(msg)
 
-    def handle_agree(self, response: Message):
+    def handle_agree(self, response: ACLMessage):
         pass
 
-    def handle_propose(self, response: Message):
+    def handle_propose(self, response: ACLMessage):
         pass
 
-    def handle_refuse(self, response: Message):
+    def handle_refuse(self, response: ACLMessage):
         pass
 
-    def handle_not_understood(self, response: Message):
+    def handle_not_understood(self, response: ACLMessage):
         pass
 
-    def handle_inform(self, response: Message):
+    def handle_inform(self, response: ACLMessage):
         pass
 
-    def handle_failure(self, response: Message):
+    def handle_failure(self, response: ACLMessage):
         pass
+
+    async def receive(self, timeout: float = None) -> Optional[ACLMessage]:
+        result = await super().receive(timeout)
+        if result is not None:
+            result.__class__ = ACLMessage
+        return result

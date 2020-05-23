@@ -2,12 +2,10 @@ import asyncio
 import random
 from typing import Sequence, List
 
-from spade.message import Message
-
 from src.agents.base_agent import BaseAgent
 from src.behaviours.contract_net_initiator import ContractNetInitiator
 from src.behaviours.contract_net_responder import ContractNetResponder
-from src.utils.message_utils import get_performative
+from src.utils.acl_message import ACLMessage
 from src.utils.performative import Performative
 
 XMPP_SERVER = 'andzelika-thinkpad-t470s-w10dg'
@@ -16,37 +14,30 @@ RESPONDERS_COUNT = 4
 
 class InitiatorAgent(BaseAgent):
     class InitiatorBehavior(ContractNetInitiator):
-        def prepare_cfps(self) -> Sequence[Message]:
+        def prepare_cfps(self) -> Sequence[ACLMessage]:
             return [self._prepare_cfp(f'responder{k}@{XMPP_SERVER}') for k in range(RESPONDERS_COUNT)]
 
-        def handle_inform(self, response: Message):
+        def handle_inform(self, response: ACLMessage):
             print(f'{self.agent.name}: INFORM received from {response.sender}')
 
-        def handle_refuse(self, response: Message):
+        def handle_refuse(self, response: ACLMessage):
             print(f'{self.agent.name}: REFUSE received from {response.sender}')
 
-        def handle_all_responses(self, responses: Sequence[Message], acceptances: List[Message],
-                                 rejections: List[Message]):
-            proposals: Sequence[Message] = [msg for msg in responses if get_performative(msg) == Performative.PROPOSE]
+        def handle_all_responses(self, responses: Sequence[ACLMessage], acceptances: List[ACLMessage],
+                                 rejections: List[ACLMessage]):
+            proposals: Sequence[ACLMessage] = [msg for msg in responses if msg.performative == Performative.PROPOSE]
             min_price: int = min(int(msg.body) for msg in proposals)
-            best_proposals: Sequence[Message] = [msg for msg in proposals if int(msg.body) == min_price]
-            selected_proposal: Message = random.choice(best_proposals)
-            acceptance: Message = selected_proposal.make_reply()
-            acceptance.set_metadata('performative', str(Performative.ACCEPT_PROPOSAL.value))
-            acceptances.append(acceptance)
+            best_proposals: Sequence[ACLMessage] = [msg for msg in proposals if int(msg.body) == min_price]
+            selected_proposal: ACLMessage = random.choice(best_proposals)
+            acceptances.append(selected_proposal.create_reply(Performative.ACCEPT_PROPOSAL))
             for msg in proposals:
                 if msg.id != selected_proposal.id:
-                    rejections.append(self._create_rejection(msg))
+                    rejections.append(msg.create_reply(Performative.REJECT_PROPOSAL))
 
-        def _prepare_cfp(self, receiver: str) -> Message:
-            msg = Message(to=receiver)
-            msg.set_metadata("performative", str(Performative.CFP.value))
+        def _prepare_cfp(self, receiver: str) -> ACLMessage:
+            msg = ACLMessage(to=receiver)
+            msg.performative = Performative.CFP
             return msg
-
-        def _create_rejection(self, msg: Message):
-            rejection = msg.make_reply()
-            rejection.set_metadata('performative', str(Performative.REJECT_PROPOSAL.value))
-            return rejection
 
     async def setup(self):
         print(f'{self.name}: Hello, I\'m {self.name}')
@@ -55,19 +46,16 @@ class InitiatorAgent(BaseAgent):
 
 class ResponderAgent(BaseAgent):
     class ResponderBehaviour(ContractNetResponder):
-        def prepare_response(self, request: Message) -> Message:
+        def prepare_response(self, request: ACLMessage) -> ACLMessage:
             print(f'{self.agent.name}: REQUEST received from {request.sender}')
-            msg = request.make_reply()
-            msg.set_metadata("performative", str(Performative.PROPOSE.value))
+            msg = request.create_reply(Performative.PROPOSE)
             msg.body = str(random.randint(1, 10))
             return msg
 
-        async def prepare_result_notification(self, request: Message) -> Message:
+        async def prepare_result_notification(self, request: ACLMessage) -> ACLMessage:
             print(f'{self.agent.name}: ACCEPT-PROPOSAL received from {request.sender}')
             await asyncio.sleep(random.randint(1, 4))
-            response: Message = request.make_reply()
-            response.set_metadata("performative", str(Performative.INFORM.value))
-            return response
+            return request.create_reply(Performative.INFORM)
 
     async def setup(self):
         print(f'{self.name}: Hello, I\'m {self.name}')

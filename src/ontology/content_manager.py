@@ -1,10 +1,10 @@
+from dataclasses import asdict
 from typing import Dict, Optional
 
-from dataclasses import asdict
-from spade.message import Message
 from xmltodict import parse, unparse
 
 from src.ontology.ontology import Ontology, ContentElement, Action
+from src.utils.acl_message import ACLMessage
 
 
 class ContentManager:
@@ -14,21 +14,26 @@ class ContentManager:
     def register_ontology(self, ontology: Ontology):
         self._ontologies[ontology.name] = ontology
 
-    def fill_content(self, action: Action, msg: Message):
-        msg.set_metadata('language', 'xml')
+    def fill_content(self, content: ContentElement, msg: ACLMessage):
+        msg.language = 'xml'
         msg.set_metadata('action', action.__key__)
         msg.body = unparse({action.__key__: asdict(action)}, pretty=True)
 
-    def extract_content(self, msg: Message) -> Action:
+    def extract_content(self, msg: ACLMessage) -> Action:
+        def postprocessor(path: str, key: str, value: str):
+            try:
+                return key, int(value)
+            except (ValueError, TypeError):
+                return key, value
+
         ontology: Optional[Ontology] = self._extract_ontology(msg)
         if ontology is None:
             raise Exception('Ontology is undefined')
-        content_dict: Dict = parse(msg.body, dict_constructor=dict)
-        key: str = list(content_dict.keys())[0]
-        return ontology[key](**content_dict[key])
+        content_dict: Dict = parse(msg.body, dict_constructor=dict, postprocessor=postprocessor)
+        element_key: str = list(content_dict.keys())[0]
+        return ontology[element_key](**content_dict[element_key])
 
-    def _extract_ontology(self, msg: Message) -> Optional[Ontology]:
-        ontology_name = msg.get_metadata('ontology')
-        if ontology_name is None:
+    def _extract_ontology(self, msg: ACLMessage) -> Optional[Ontology]:
+        if msg.ontology is None:
             return None
-        return self._ontologies.get(ontology_name)
+        return self._ontologies.get(msg.ontology)

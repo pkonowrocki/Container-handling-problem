@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from typing import Dict, Type
 
 from dataclasses import dataclass
@@ -6,6 +7,11 @@ from dataclasses import dataclass
 @dataclass
 class ContentElement:
     __key__ = 'content_element'
+
+
+@dataclass
+class Action(ContentElement):
+    __key__ = 'action'
 
 
 class Ontology:
@@ -24,4 +30,5 @@ class Ontology:
         if self._concepts.get(concept.__key__) is None:
             self._concepts[concept.__key__] = concept
         else:
+            # pass
             raise Exception('concept already exists in ontology')

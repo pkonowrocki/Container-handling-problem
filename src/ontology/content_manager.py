@@ -4,7 +4,7 @@ from dataclasses import asdict
 from spade.message import Message
 from xmltodict import parse, unparse
 
-from src.ontology.ontology import Ontology, ContentElement
+from src.ontology.ontology import Ontology, ContentElement, Action
 
 
 class ContentManager:
@@ -14,11 +14,12 @@ class ContentManager:
     def register_ontology(self, ontology: Ontology):
         self._ontologies[ontology.name] = ontology
 
-    def fill_content(self, content: ContentElement, msg: Message):
+    def fill_content(self, action: Action, msg: Message):
         msg.set_metadata('language', 'xml')
-        msg.body = unparse({content.__key__: asdict(content)}, pretty=True)
+        msg.set_metadata('action', action.__key__)
+        msg.body = unparse({action.__key__: asdict(action)}, pretty=True)
 
-    def extract_content(self, msg: Message) -> object:
+    def extract_content(self, msg: Message) -> Action:
         ontology: Optional[Ontology] = self._extract_ontology(msg)
         if ontology is None:
             raise Exception('Ontology is undefined')

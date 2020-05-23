@@ -1,13 +1,15 @@
 import asyncio
 import uuid
 from pprint import pprint
+from typing import Sequence
 
 from spade.agent import Agent
 from spade.behaviour import OneShotBehaviour
 from spade.message import Message
 
-from src.agents.DFAgent import HandleRegisterRequestBehaviour, HandleSearchBehaviour, DFAgentDescriptionList, \
-    HandleDeregisterRequestBehaviour, ServiceDescription, jid_to_str, DFAgentDescription, DFService, DFAgent
+from src.agents.DFAgent import HandleRegisterRequestBehaviour, HandleSearchBehaviour, \
+    HandleDeregisterRequestBehaviour, jid_to_str, DFAgentDescription, DFService, DFAgent
+from src.ontology.directory_facilitator_ontology import ServiceDescription
 from src.utils.interaction_protocol import InteractionProtocol
 from src.utils.content_language import ContentLanguage
 
@@ -67,10 +69,10 @@ class ServiceAgent(Agent):
 class ClientAgent(Agent):
     class SearchHandler(HandleSearchBehaviour):
 
-        async def handleResponse(self, result: DFAgentDescriptionList):
+        async def handleResponse(self, result: Sequence[DFAgentDescription]):
             print(
-                f'[{jid_to_str(self.agent.jid)}] Search result ({len(result.list) if result.list is not None else 0}):')
-            pprint(result.list)
+                f'[{jid_to_str(self.agent.jid)}] Search result ({len(result) if result is not None else 0}):')
+            pprint(None if result is None else [x.agentName for x in result])
 
         async def handleFailure(self, result: Message):
             print(f"[{jid_to_str(self.agent.jid)}] Search failure")

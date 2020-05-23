@@ -1,10 +1,13 @@
 from datetime import datetime
 from typing import List, NamedTuple
 
+from spade.template import Template
+
 from src.agents.base_agent import BaseAgent
 from src.behaviours.contract_net_responder import ContractNetResponder
+from src.behaviours.request_responder import RequestResponder
 from src.ontology.port_terminal_ontology import ContainerData, AllocationProposal, \
-    PortTerminalOntology, AllocationProposalAcceptance, AllocationConfirmation
+    PortTerminalOntology, AllocationProposalAcceptance, AllocationConfirmation, DeallocationRequest
 from src.utils.acl_message import ACLMessage
 from src.utils.performative import Performative
 
@@ -48,6 +51,28 @@ class AllocationResponder(ContractNetResponder):
         return request.create_reply(Performative.NOT_UNDERSTOOD)
 
 
+class DeallocationResponder(RequestResponder):
+
+    async def prepare_response(self, request: ACLMessage) -> ACLMessage:
+        content = self.agent.content_manager.extract_content(request)
+        if isinstance(content, DeallocationRequest):
+            if self.agent.has_container(content.container_id):
+                return request.create_reply(Performative.AGREE)
+            else:
+                return request.create_reply(Performative.REFUSE)
+        return request.create_reply(Performative.NOT_UNDERSTOOD)
+
+    async def prepare_result_notification(self, request: ACLMessage) -> ACLMessage:
+        content: DeallocationRequest = self.agent.content_manager.extract_content(request)
+        self.agent.remove_container(content.container_id)
+        response = ACLMessage(
+            to=str(request.sender),
+            sender=str(self.agent.jid)
+        )
+        response.performative = Performative.INFORM
+        return response
+
+
 class SlotManagerAgent(BaseAgent):
     def __init__(self, jid: str, password: str, slot_id: str, max_height: int):
         super().__init__(jid, password, PortTerminalOntology.instance())
@@ -56,7 +81,12 @@ class SlotManagerAgent(BaseAgent):
         self._containers: List[SlotItem] = []
 
     async def setup(self):
-        self.add_behaviour(AllocationResponder())
+        allocation_mt = Template()
+        allocation_mt.set_metadata('protocol', 'ContractNet')
+        deallocation_mt = Template()
+        deallocation_mt.set_metadata('protocol', 'Request')
+        self.add_behaviour(AllocationResponder(), allocation_mt)
+        self.add_behaviour(DeallocationResponder(), deallocation_mt)
 
     @property
     def slot_id(self) -> str:
@@ -81,3 +111,6 @@ class SlotManagerAgent(BaseAgent):
 
     def has_container(self, search_id: str) -> bool:
         return search_id in [container_id for container_id, _ in self._containers]
+
+    def remove_container(self, container_id: str):
+        self._containers = [slot_item for slot_item in self._containers if slot_item.container_id != container_id]

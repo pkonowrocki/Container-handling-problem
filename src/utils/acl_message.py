@@ -7,6 +7,7 @@ class ACLMessage(Message):
     PERFORMATIVE_KEY = 'performative'
     ONTOLOGY_KEY = 'ontology'
     LANGUAGE_KEY = 'language'
+    PROTOCOL_KEY = 'protocol'
 
     @property
     def performative(self) -> Performative:
@@ -31,6 +32,14 @@ class ACLMessage(Message):
     @language.setter
     def language(self, value: str):
         self.set_metadata(self.LANGUAGE_KEY, value)
+
+    @property
+    def protocol(self) -> str:
+        return self.get_metadata(self.PROTOCOL_KEY)
+
+    @protocol.setter
+    def protocol(self, value: str):
+        self.set_metadata(self.PROTOCOL_KEY, value)
 
     def create_reply(self, performative: Performative) -> 'ACLMessage':
         reply = self.make_reply()

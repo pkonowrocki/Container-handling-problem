@@ -1,11 +1,16 @@
 import math
+from datetime import datetime
 from typing import Sequence, List
+
+from spade.behaviour import TimeoutBehaviour
+from spade.template import Template
 
 from src.agents.base_agent import BaseAgent
 from src.behaviours.contract_net_initiator import ContractNetInitiator
+from src.behaviours.request_initiator import RequestInitiator
 from src.ontology.ontology import ContentElement
 from src.ontology.port_terminal_ontology import PortTerminalOntology, ContainerData, AllocationProposal, \
-    AllocationConfirmation, AllocationProposalAcceptance
+    AllocationConfirmation, AllocationProposalAcceptance, DeallocationRequest
 from src.utils.acl_message import ACLMessage
 from src.utils.performative import Performative
 
@@ -24,6 +29,7 @@ class AllocationInitiator(ContractNetInitiator):
         if isinstance(content, AllocationConfirmation):
             self.agent.log(f'Container successfully allocated in slot no {content.slot_id}')
             self.agent.slot_id = content.slot_id
+            self.agent.slot_jid = str(response.sender)
         else:
             self.agent.log('Allocation failed')
             self.agent.kill()
@@ -39,7 +45,8 @@ class AllocationInitiator(ContractNetInitiator):
         )
         cfp.performative = Performative.CFP
         cfp.ontology = self.agent.ontology.name
-        content: ContentElement = ContainerData(self.agent.jid, self.agent.departure_time)
+        cfp.protocol = 'ContractNet'
+        content: ContentElement = ContainerData(str(self.agent.jid), self.agent.departure_time)
         self.agent.content_manager.fill_content(content, cfp)
         return cfp
 
@@ -54,7 +61,7 @@ class AllocationInitiator(ContractNetInitiator):
         best_proposal: ACLMessage = min(proposals, key=fetch_allocation_eval)
         acceptance = best_proposal.create_reply(Performative.ACCEPT_PROPOSAL)
         acceptance_content: ContentElement = AllocationProposalAcceptance(
-            ContainerData(self.agent.jid, self.agent.departure_time))
+            ContainerData(self.agent.jid, str(self.agent.departure_time)))
         self.agent.content_manager.fill_content(acceptance_content, acceptance)
         acceptances.append(acceptance)
         for msg in proposals:
@@ -62,22 +69,58 @@ class AllocationInitiator(ContractNetInitiator):
                 rejections.append(msg.create_reply(Performative.REJECT_PROPOSAL))
 
 
+class DeallocationInitiator(RequestInitiator):
+
+    def prepare_requests(self) -> Sequence[ACLMessage]:
+        if self.agent.slot_jid is None:
+            raise Exception('Container is not allocated')
+        request = ACLMessage(
+            to=self.agent.slot_jid,
+            sender=str(self.agent.jid)
+        )
+        request.protocol = 'Request'
+        request.ontology = self.agent.ontology.name
+        self.agent.content_manager.fill_content(DeallocationRequest(self.agent.jid), request)
+        return [request]
+
+    def handle_refuse(self, response: ACLMessage):
+        self.agent.log('Deallocation refused')
+
+    def handle_inform(self, response: ACLMessage):
+        self.agent.log(f'Deallocation succeeded. Delay: {str(datetime.now() - self.agent.departure_time)}')
+
+    def handle_failure(self, response: ACLMessage):
+        self.agent.log('Deallocation failed')
+
+
+class DeallocationLauncher(TimeoutBehaviour):
+    async def run(self):
+        deallocation_initiator = DeallocationInitiator()
+        self.agent.add_behaviour(deallocation_initiator)
+        await deallocation_initiator.join()
+        await self.agent.stop()
+
+
 class ContainerAgent(BaseAgent):
-    def __init__(self, jid: str, password: str, slot_manager_agents_jids: Sequence[str], departure_time: str):
+    def __init__(self, jid: str, password: str, slot_manager_agents_jids: Sequence[str], departure_time: datetime):
         super().__init__(jid, password, PortTerminalOntology.instance())
         self._slot_manager_agents_jids = slot_manager_agents_jids  # TODO: Replace this line with fetching jids from DF
-        self._departure_time = departure_time
+        self._departure_time: datetime = departure_time
         self._slot_id = None
+        self._slot_jid = None
 
     async def setup(self):
-        self.add_behaviour(AllocationInitiator())
+        allocation_mt = Template()
+        allocation_mt.set_metadata('protocol', 'ContractNet')
+        self.add_behaviour(AllocationInitiator(), allocation_mt)
+        self.add_behaviour(DeallocationLauncher(self.departure_time))
 
     @property
     def slot_manager_agents_jids(self) -> Sequence[str]:
         return self._slot_manager_agents_jids
 
     @property
-    def departure_time(self) -> str:
+    def departure_time(self) -> datetime:
         return self._departure_time
 
     @property
@@ -87,3 +130,11 @@ class ContainerAgent(BaseAgent):
     @slot_id.setter
     def slot_id(self, value: str):
         self._slot_id = value
+
+    @property
+    def slot_jid(self) -> str:
+        return self._slot_jid
+
+    @slot_jid.setter
+    def slot_jid(self, value: str):
+        self._slot_jid = value

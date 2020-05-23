@@ -31,6 +31,12 @@ class AllocationProposalAcceptance(ContentElement):
     __key__ = 'allocation_proposal_acceptance'
 
 
+@dataclass
+class DeallocationRequest(ContentElement):
+    container_id: str
+    __key__ = 'deallocation_request'
+
+
 @Singleton
 class PortTerminalOntology(Ontology):
     def __init__(self):
@@ -40,3 +46,4 @@ class PortTerminalOntology(Ontology):
         self.add(AllocationProposal)
         self.add(AllocationConfirmation)
         self.add(AllocationProposalAcceptance)
+        self.add(DeallocationRequest)

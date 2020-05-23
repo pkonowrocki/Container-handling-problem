@@ -24,7 +24,7 @@ class RequestResponder(Responder, metaclass=ABCMeta):
             request: ACLMessage = await self.receive()
             if request is not None:
                 self._request = request
-                response: ACLMessage = self.prepare_response(request)
+                response: ACLMessage = await self.prepare_response(request)
                 if response.performative == Performative.AGREE:
                     self._state = RequestResponderState.REQUEST_AGREED
                 else:

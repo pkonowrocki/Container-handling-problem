@@ -2,18 +2,20 @@ import sys
 from enum import IntEnum
 from typing import Sequence, Optional
 
-from spade.agent import Agent
 from spade.behaviour import *
 
+from src.agents.base_agent import BaseAgent
+from src.behaviours.base_cyclic_behaviour import BaseCyclicBehaviour
 from src.ontology.content_manager import ContentManager
 from src.ontology.directory_facilitator_ontology import DFAgentDescription, \
     SearchServiceResponse, RegisterService, DeregisterService, DFOntology, SearchServiceRequest
 from src.ontology.ontology import Action
+from src.utils.acl_message import ACLMessage
 from src.utils.message_utils import *
 
 
-class DFAgent(Agent):
-    class RegisterBehaviour(CyclicBehaviour):
+class DFAgent(BaseAgent):
+    class RegisterBehaviour(BaseCyclicBehaviour):
         def __init__(self, registeredServices: Sequence[DFAgentDescription], contentManager: ContentManager):
             super().__init__()
             self.registeredServices: Sequence[DFAgentDescription] = registeredServices
@@ -22,18 +24,18 @@ class DFAgent(Agent):
         async def run(self):
             msg = await self.receive()
             if msg:
-                reply: Message = msg.make_reply()
+                reply: ACLMessage = msg.make_reply()
                 try:
                     service: RegisterService = self.contentManager.extract_content(msg)
                     self.registeredServices.append(service.request)
                     reply.set_metadata("performative", str(Performative.INFORM.value))
                 except Exception as ex:
-                    sys.stderr.write(f'DF Agent exception \n {ex} \n at message \n {msg}')
+                    sys.stderr.write(f'DF BaseAgent exception \n {ex} \n at ACLMessage \n {msg}')
                     reply.set_metadata("performative", str(Performative.FAILURE.value))
                 finally:
                     await self.send(reply)
 
-    class SearchBehaviour(CyclicBehaviour):
+    class SearchBehaviour(BaseCyclicBehaviour):
         def __init__(self, registeredServices: Sequence[DFAgentDescription], contentManager: ContentManager):
             super().__init__()
             self.registeredServices: Sequence[DFAgentDescription] = registeredServices
@@ -42,7 +44,7 @@ class DFAgent(Agent):
         async def run(self):
             msg = await self.receive()
             if msg:
-                reply: Message = msg.make_reply()
+                reply: ACLMessage = msg.make_reply()
                 try:
                     request: SearchServiceRequest = self.contentManager.extract_content(msg)
                     template: DFAgentDescription = request.request
@@ -53,7 +55,7 @@ class DFAgent(Agent):
                     reply.set_metadata("ontology", DFService.DFServiceOntology.name)
                     reply.set_metadata("performative", str(Performative.INFORM.value))
                 except Exception as ex:
-                    sys.stderr.write(f'DF Agent exception \n {ex} \n at message \n {msg}')
+                    sys.stderr.write(f'DF BaseAgent exception \n {ex} \n at ACLMessage \n {msg}')
                     reply.set_metadata("performative", str(Performative.FAILURE.value))
                 finally:
                     await self.send(reply)
@@ -80,7 +82,7 @@ class DFAgent(Agent):
             else:
                 return False
 
-    class DeleteBehaviour(CyclicBehaviour):
+    class DeleteBehaviour(BaseCyclicBehaviour):
         def __init__(self, registeredServices: Sequence[DFAgentDescription], contentManager: ContentManager):
             super().__init__()
             self.registeredServices: Sequence[DFAgentDescription] = registeredServices
@@ -90,12 +92,12 @@ class DFAgent(Agent):
             msg = await self.receive()
             if msg:
                 template = self.contentManager.extract_content(msg)
-                reply: Message = msg.make_reply()
+                reply: ACLMessage = msg.make_reply()
                 try:
                     self.__delete(template.request)
                     reply.set_metadata("performative", str(Performative.INFORM.value))
                 except Exception as ex:
-                    sys.stderr.write(f'DF Agent exception \n {ex} \n at message \n {msg}')
+                    sys.stderr.write(f'DF BaseAgent exception \n {ex} \n at ACLMessage \n {msg}')
                     reply.set_metadata("performative", str(Performative.FAILURE.value))
                 finally:
                     await self.send(reply)
@@ -127,11 +129,11 @@ class DFAgent(Agent):
                 return False
 
     """
-    Directory Facilitator Agent
+    Directory Facilitator BaseAgent
     """
 
     def __init__(self, jid: str, password: str, verify_security: bool = False):
-        super().__init__(jid, password, verify_security)
+        super().__init__(jid, password)
         self.registeredServices: Sequence[DFAgentDescription] = []
         self.contentManager: ContentManager = ContentManager()
         self.dfOntology: DFOntology = DFOntology()
@@ -154,7 +156,7 @@ class DFAgent(Agent):
         self.add_behaviour(self.DeleteBehaviour(self.registeredServices, self.contentManager), deregisterTemplate)
 
 
-class HandlerBehaviour(CyclicBehaviour):
+class HandlerBehaviour(BaseCyclicBehaviour):
     @abstractmethod
     async def run(self):
         pass
@@ -170,7 +172,7 @@ class HandlerBehaviour(CyclicBehaviour):
     def __init__(self):
         super().__init__()
         self.contentManager: Optional[ContentManager] = None
-        self.msg: Optional[Message] = None
+        self.msg: Optional[ACLMessage] = None
         self.state: HandlerBehaviour.CommunicationState = HandlerBehaviour.CommunicationState.EMPTY
         self.__setState()
 
@@ -184,7 +186,7 @@ class HandlerBehaviour(CyclicBehaviour):
         else:
             self.state = HandlerBehaviour.CommunicationState.SEND_REQUEST
 
-    def setMessage(self, msg: Message):
+    def setMessage(self, msg: ACLMessage):
         self.msg = msg
         self.__setState()
 
@@ -203,7 +205,7 @@ class HandleSearchBehaviour(HandlerBehaviour):
         pass
 
     @abstractmethod
-    async def handleFailure(self, msg: Message):
+    async def handleFailure(self, msg: ACLMessage):
         pass
 
     async def run(self):
@@ -216,14 +218,14 @@ class HandleSearchBehaviour(HandlerBehaviour):
                 await self.send(self.msg)
                 self.state = HandleSearchBehaviour.CommunicationState.WAIT_FOR_RESPONSE
         elif self.state == HandleSearchBehaviour.CommunicationState.WAIT_FOR_RESPONSE:
-            random: Optional[Message] = await self.receive()
+            random: Optional[ACLMessage] = await self.receive()
             if random is not None and get_ontology(random) == DFService.DFServiceOntology.name and \
-                    get_action(random) == SearchServiceResponse.__key__:
+                    random.action == SearchServiceResponse.__key__:
                 self.result: SearchServiceResponse = self.contentManager.extract_content(random)
                 if self.result:
-                    if get_performative(random) == Performative.INFORM:
+                    if random.performative == Performative.INFORM:
                         await self.handleResponse(self.result.list)
-                    elif get_performative(random) == Performative.FAILURE:
+                    elif random.performative == Performative.FAILURE:
                         await self.handleFailure(random)
                     self.kill()
 
@@ -231,14 +233,14 @@ class HandleSearchBehaviour(HandlerBehaviour):
 class HandleRegisterRequestBehaviour(HandlerBehaviour):
     def __init__(self):
         super().__init__()
-        self.result: Optional[Message] = None
+        self.result: Optional[ACLMessage] = None
 
     @abstractmethod
-    async def handleAccept(self, result: Message):
+    async def handleAccept(self, result: ACLMessage):
         pass
 
     @abstractmethod
-    async def handleFailure(self, result: Message):
+    async def handleFailure(self, result: ACLMessage):
         pass
 
     async def run(self):
@@ -251,13 +253,13 @@ class HandleRegisterRequestBehaviour(HandlerBehaviour):
                 await self.send(self.msg)
                 self.state = HandlerBehaviour.CommunicationState.WAIT_FOR_RESPONSE
         elif self.state == HandlerBehaviour.CommunicationState.WAIT_FOR_RESPONSE:
-            random: Optional[Message] = await self.receive()
-            if random is not None and get_ontology(random) == DFService.DFServiceOntology.name:
+            random: Optional[ACLMessage] = await self.receive()
+            if random is not None and random.ontology == DFService.DFServiceOntology.name:
                 self.result = random
                 self.state = HandlerBehaviour.CommunicationState.HANDLE
-                if get_performative(self.result) == Performative.INFORM:
+                if self.result.performative == Performative.INFORM:
                     await self.handleAccept(self.result)
-                elif get_performative(self.result) == Performative.FAILURE:
+                elif self.result.performative == Performative.FAILURE:
                     await self.handleFailure(self.result)
                 self.kill()
 
@@ -265,14 +267,14 @@ class HandleRegisterRequestBehaviour(HandlerBehaviour):
 class HandleDeregisterRequestBehaviour(HandlerBehaviour):
     def __init__(self):
         super().__init__()
-        self.result: Optional[Message] = None
+        self.result: Optional[ACLMessage] = None
 
     @abstractmethod
-    async def handleAccept(self, result: Message):
+    async def handleAccept(self, result: ACLMessage):
         pass
 
     @abstractmethod
-    async def handleFailure(self, result: Message):
+    async def handleFailure(self, result: ACLMessage):
         pass
 
     async def run(self):
@@ -285,12 +287,12 @@ class HandleDeregisterRequestBehaviour(HandlerBehaviour):
                 await self.send(self.msg)
                 self.state = HandlerBehaviour.CommunicationState.WAIT_FOR_RESPONSE
         elif self.state == HandlerBehaviour.CommunicationState.WAIT_FOR_RESPONSE:
-            random: Optional[Message] = await self.receive()
-            if random is not None and get_ontology(random) == DFService.DFServiceOntology.name:
+            random: Optional[ACLMessage] = await self.receive()
+            if random is not None and random.ontology == DFService.DFServiceOntology.name:
                 self.result = random
-                if get_performative(self.result) == Performative.INFORM:
+                if self.result.performative == Performative.INFORM:
                     await self.handleAccept(self.result)
-                elif get_performative(self.result) == Performative.FAILURE:
+                elif self.result.performative == Performative.FAILURE:
                     await self.handleFailure(self.result)
                 self.kill()
 
@@ -308,46 +310,46 @@ class DFService:
         DFService.__contentManager.register_ontology(DFService.DFServiceOntology)
 
     @staticmethod
-    async def register(agent: Agent, dfd: DFAgentDescription,
+    async def register(agent: BaseAgent, dfd: DFAgentDescription,
                        handleBehaviour: HandleRegisterRequestBehaviour):
         if dfd is None:
             raise TypeError
-        request: Message = DFService.__createRequestMessage(agent, RegisterService(dfd))
+        request: ACLMessage = DFService.__createRequestMessage(agent, RegisterService(dfd))
         request.set_metadata("action", RegisterService.__key__)
         await DFService.__doFipaRequestClient(agent, request, handleBehaviour)
 
     @staticmethod
-    async def search(agent: Agent, dfd: DFAgentDescription,
+    async def search(agent: BaseAgent, dfd: DFAgentDescription,
                      handleBehaviour: HandleSearchBehaviour):
         if dfd is None:
             raise TypeError
-        request: Message = DFService.__createRequestMessage(agent, SearchServiceRequest(dfd))
+        request: ACLMessage = DFService.__createRequestMessage(agent, SearchServiceRequest(dfd))
         request.set_metadata("action", SearchServiceRequest.__key__)
         await DFService.__doFipaRequestClient(agent, request, handleBehaviour)
 
     @staticmethod
-    async def deregister(agent: Agent, dfd: DFAgentDescription,
+    async def deregister(agent: BaseAgent, dfd: DFAgentDescription,
                          handleBehaviour: HandleDeregisterRequestBehaviour):
         if dfd is None:
             raise TypeError
-        request: Message = DFService.__createRequestMessage(agent, DeregisterService(dfd))
+        request: ACLMessage = DFService.__createRequestMessage(agent, DeregisterService(dfd))
         await DFService.__doFipaRequestClient(agent, request, handleBehaviour)
 
     @staticmethod
-    async def __doFipaRequestClient(agent: Agent, request: Message,
+    async def __doFipaRequestClient(agent: BaseAgent, request: ACLMessage,
                                     handlerBehaviour: HandlerBehaviour):
         handlerBehaviour.setMessage(request)
         handlerBehaviour.setContentManager(DFService.__contentManager)
         agent.add_behaviour(handlerBehaviour)
 
     @staticmethod
-    def __createRequestMessage(agent: Agent, action: Action) -> Message:
-        msg: Message = Message(
+    def __createRequestMessage(agent: BaseAgent, action: Action) -> ACLMessage:
+        msg: ACLMessage = ACLMessage(
             to=jid_to_str(DFService.__df.jid),
             sender=jid_to_str(agent.jid)
         )
 
-        msg.set_metadata("performative", str(Performative.REQUEST))
-        msg.set_metadata("ontology", DFService.DFServiceOntology.name)
+        msg.performative = Performative.REQUEST
+        msg.ontology = DFService.DFServiceOntology.name
         DFService.__contentManager.fill_content(action, msg)
         return msg

@@ -9,6 +9,7 @@ from spade.message import Message
 
 from src.agents.DFAgent import HandleRegisterRequestBehaviour, HandleSearchBehaviour, \
     HandleDeregisterRequestBehaviour, jid_to_str, DFAgentDescription, DFService, DFAgent
+from src.agents.base_agent import BaseAgent
 from src.ontology.directory_facilitator_ontology import ServiceDescription
 from src.utils.interaction_protocol import InteractionProtocol
 from src.utils.content_language import ContentLanguage
@@ -16,7 +17,7 @@ from src.utils.content_language import ContentLanguage
 XMPP_SERVER = 'host.docker.internal'
 
 
-class ServiceAgent(Agent):
+class ServiceAgent(BaseAgent):
     class RegistrationHandler(HandleRegisterRequestBehaviour):
 
         async def handleFailure(self, result: Message):
@@ -66,7 +67,7 @@ class ServiceAgent(Agent):
         self.add_behaviour(b)
 
 
-class ClientAgent(Agent):
+class ClientAgent(BaseAgent):
     class SearchHandler(HandleSearchBehaviour):
 
         async def handleResponse(self, result: Sequence[DFAgentDescription]):
@@ -103,7 +104,7 @@ class ClientAgent(Agent):
         self.add_behaviour(b)
 
 
-class OtherServiceAgent(Agent):
+class OtherServiceAgent(BaseAgent):
     class RegistrationHandler(HandleRegisterRequestBehaviour):
 
         async def handleFailure(self, result: Message):

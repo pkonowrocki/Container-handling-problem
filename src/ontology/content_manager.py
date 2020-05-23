@@ -14,7 +14,7 @@ class ContentManager:
     def register_ontology(self, ontology: Ontology):
         self._ontologies[ontology.name] = ontology
 
-    def fill_content(self, content: ContentElement, msg: ACLMessage):
+    def fill_content(self, action: Action, msg: ACLMessage):
         msg.language = 'xml'
         msg.set_metadata('action', action.__key__)
         msg.body = unparse({action.__key__: asdict(action)}, pretty=True)

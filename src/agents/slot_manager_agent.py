@@ -21,6 +21,8 @@ class AllocationResponder(ContractNetResponder):
             return request.create_reply(Performative.REFUSE)
         content = self.agent.content_manager.extract_content(request)
         if isinstance(content, ContainerData):
+            if self.agent.has_container(content.id):
+                return request.create_reply(Performative.REFUSE)
             try:
                 td: float = self.agent.get_timedelta_from_forced_reallocation_to_departure(content.departure_time)
                 response: ACLMessage = request.create_reply(Performative.PROPOSE)
@@ -76,3 +78,6 @@ class SlotManagerAgent(BaseAgent):
     def add_container(self, container_id: str, departure_time: str):
         parsed_departure_time = datetime.fromisoformat(departure_time)
         self._containers.append(SlotItem(container_id, parsed_departure_time))
+
+    def has_container(self, search_id: str) -> bool:
+        return search_id in [container_id for container_id, _ in self._containers]

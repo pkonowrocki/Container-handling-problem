@@ -3,7 +3,7 @@ from typing import Dict, Optional
 
 from xmltodict import parse, unparse
 
-from src.ontology.ontology import Ontology, ContentElement
+from src.ontology.ontology import Ontology, ContentElement, Action
 from src.utils.acl_message import ACLMessage
 
 
@@ -16,9 +16,11 @@ class ContentManager:
 
     def fill_content(self, content: ContentElement, msg: ACLMessage):
         msg.language = 'xml'
+        if issubclass(type(content), Action):
+            msg.set_metadata('action', content.__key__)
         msg.body = unparse({content.__key__: asdict(content)}, pretty=True)
 
-    def extract_content(self, msg: ACLMessage) -> object:
+    def extract_content(self, msg: ACLMessage) -> Action:
         def postprocessor(path: str, key: str, value: str):
             try:
                 return key, int(value)

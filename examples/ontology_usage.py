@@ -25,10 +25,10 @@ class Book(ContentElement):
 
 
 @nested_dataclass
-class BookShelve(ContentElement):
+class BookShelf(ContentElement):
     id: str
     books: List[Book] = field(default_factory=list)
-    __key__ = 'book_shelve'
+    __key__ = 'book_shelf'
 
 
 @Singleton
@@ -37,7 +37,7 @@ class BookShopOntology(Ontology):
         super().__init__('Book Shop Ontology')
         self.add(Author)
         self.add(Book)
-        self.add(BookShelve)
+        self.add(BookShelf)
 
 
 # Create content manager and register ontology
@@ -48,7 +48,7 @@ content_manager.register_ontology(book_shop_ontology)
 # Test book serialization and deserialization
 bookA: Book = Book('4.50 from Paddington', Author('Agatha', 'Christie'), 150)
 bookB: Book = Book('The Doll', Author('Boleslaw', 'Prus'), 650)
-book_shelve = BookShelve('1', [bookA, bookB])
+book_shelve = BookShelf('1', [bookA, bookB])
 print(f'Initial book shelve object:\n{book_shelve}\n')
 
 msg: ACLMessage = ACLMessage(

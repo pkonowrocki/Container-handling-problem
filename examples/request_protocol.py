@@ -35,7 +35,7 @@ class InitiatorAgent(BaseAgent):
 
 class ResponderAgent(BaseAgent):
     class ResponderBehaviour(RequestResponder):
-        def prepare_response(self, request: ACLMessage) -> ACLMessage:
+        async def prepare_response(self, request: ACLMessage) -> ACLMessage:
             print(f'{self.agent.name}: REQUEST received from {request.sender}')
             return request.create_reply(Performative.AGREE)
 

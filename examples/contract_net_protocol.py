@@ -14,7 +14,7 @@ RESPONDERS_COUNT = 4
 
 class InitiatorAgent(BaseAgent):
     class InitiatorBehavior(ContractNetInitiator):
-        def prepare_cfps(self) -> Sequence[ACLMessage]:
+        async def prepare_cfps(self) -> Sequence[ACLMessage]:
             return [self._prepare_cfp(f'responder{k}@{XMPP_SERVER}') for k in range(RESPONDERS_COUNT)]
 
         def handle_inform(self, response: ACLMessage):
@@ -46,7 +46,7 @@ class InitiatorAgent(BaseAgent):
 
 class ResponderAgent(BaseAgent):
     class ResponderBehaviour(ContractNetResponder):
-        def prepare_response(self, request: ACLMessage) -> ACLMessage:
+        async def prepare_response(self, request: ACLMessage) -> ACLMessage:
             print(f'{self.agent.name}: REQUEST received from {request.sender}')
             msg = request.create_reply(Performative.PROPOSE)
             msg.body = str(random.randint(1, 10))

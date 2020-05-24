@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, field
+from typing import Sequence, List
 
 from src.ontology.content_manager import ContentManager
 from src.ontology.ontology import Ontology, ContentElement
@@ -23,12 +24,20 @@ class Book(ContentElement):
     __key__ = 'book'
 
 
+@nested_dataclass
+class BookShelve(ContentElement):
+    id: str
+    books: List[Book] = field(default_factory=list)
+    __key__ = 'book_shelve'
+
+
 @Singleton
 class BookShopOntology(Ontology):
     def __init__(self):
         super().__init__('Book Shop Ontology')
         self.add(Author)
         self.add(Book)
+        self.add(BookShelve)
 
 
 # Create content manager and register ontology
@@ -37,16 +46,18 @@ book_shop_ontology = BookShopOntology.instance()
 content_manager.register_ontology(book_shop_ontology)
 
 # Test book serialization and deserialization
-book: Book = Book('4.50 from Paddington', Author('Agatha', 'Christie'), 150)
-print(f'Initial book object:\n{book}\n')
+bookA: Book = Book('4.50 from Paddington', Author('Agatha', 'Christie'), 150)
+bookB: Book = Book('The Doll', Author('Boleslaw', 'Prus'), 650)
+book_shelve = BookShelve('1', [bookA, bookB])
+print(f'Initial book shelve object:\n{book_shelve}\n')
 
 msg: ACLMessage = ACLMessage(
     to='receiver@host',
     sender='sender@host',
 )
 msg.ontology = book_shop_ontology.name
-content_manager.fill_content(book, msg)
-print(f'Book as message body:\n{msg.body}\n')
+content_manager.fill_content(book_shelve, msg)
+print(f'Book shelve as message body:\n{msg.body}\n')
 
 received_book = content_manager.extract_content(msg)
-print(f'Received book object:\n{received_book}\n')
+print(f'Received book shelve object:\n{received_book}\n')

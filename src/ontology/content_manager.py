@@ -14,10 +14,11 @@ class ContentManager:
     def register_ontology(self, ontology: Ontology):
         self._ontologies[ontology.name] = ontology
 
-    def fill_content(self, action: Action, msg: ACLMessage):
+    def fill_content(self, content: ContentElement, msg: ACLMessage):
         msg.language = 'xml'
-        msg.set_metadata('action', action.__key__)
-        msg.body = unparse({action.__key__: asdict(action)}, pretty=True)
+        if issubclass(type(content), Action):
+            msg.set_metadata('action', content.__key__)
+        msg.body = unparse({content.__key__: asdict(content)}, pretty=True)
 
     def extract_content(self, msg: ACLMessage) -> Action:
         def postprocessor(path: str, key: str, value: str):

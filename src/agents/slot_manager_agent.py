@@ -7,8 +7,9 @@ from spade.template import Template
 from src.agents.base_agent import BaseAgent
 from src.behaviours.contract_net_responder import ContractNetResponder
 from src.behaviours.request_responder import RequestResponder
-from src.ontology.port_terminal_ontology import ContainerData, AllocationProposal, \
-    PortTerminalOntology, AllocationProposalAcceptance, AllocationConfirmation, DeallocationRequest, AllocationRequest
+from src.ontology.port_terminal_ontology import AllocationProposal, \
+    PortTerminalOntology, AllocationProposalAcceptance, AllocationConfirmation, DeallocationRequest, \
+    AllocationRequest, ReallocationRequest
 from src.utils.acl_message import ACLMessage
 from src.utils.performative import Performative
 
@@ -53,6 +54,27 @@ class AllocationResponder(ContractNetResponder):
         return request.create_reply(Performative.NOT_UNDERSTOOD)
 
 
+class ReallocationResponder(AllocationResponder):
+    async def prepare_response(self, request: ACLMessage) -> ACLMessage:
+        content = self.agent.content_manager.extract_content(request)
+        if isinstance(content, AllocationRequest):
+            if self.agent.has_container(content.container_data.id):
+                self.agent.remove_container(content.container_data.id)
+                return request.create_reply(Performative.REFUSE)
+            if self.agent.is_full:
+                return request.create_reply(Performative.REFUSE)
+            try:
+                td: float = self.agent.get_timedelta_from_forced_reallocation_to_departure(
+                    content.container_data.departure_time)
+                response: ACLMessage = request.create_reply(Performative.PROPOSE)
+                allocation_proposal = AllocationProposal(self.agent.slot_id, int(td))
+                self.agent.content_manager.fill_content(allocation_proposal, response)
+                return response
+            except ValueError:
+                pass
+        return request.create_reply(Performative.NOT_UNDERSTOOD)
+
+
 class DeallocationResponder(RequestResponder):
 
     async def prepare_response(self, request: ACLMessage) -> ACLMessage:
@@ -87,6 +109,10 @@ class SlotManagerAgent(BaseAgent):
         allocation_mt = Template()
         allocation_mt.set_metadata('protocol', 'ContractNet')
         allocation_mt.set_metadata('action', AllocationRequest.__key__)
+
+        reallocation_mt = Template()
+        reallocation_mt.set_metadata('protocol', 'ContractNet')
+        reallocation_mt.set_metadata('action', ReallocationRequest.__key__)
 
         deallocation_mt = Template()
         deallocation_mt.set_metadata('protocol', 'Request')

@@ -10,7 +10,7 @@ from src.behaviours.contract_net_initiator import ContractNetInitiator
 from src.behaviours.request_initiator import RequestInitiator
 from src.ontology.ontology import ContentElement
 from src.ontology.port_terminal_ontology import PortTerminalOntology, ContainerData, AllocationProposal, \
-    AllocationConfirmation, AllocationProposalAcceptance, DeallocationRequest, AllocationRequest
+    AllocationConfirmation, AllocationProposalAcceptance, DeallocationRequest, AllocationRequest, ReallocationRequest
 from src.utils.acl_message import ACLMessage
 from src.utils.performative import Performative
 
@@ -70,6 +70,22 @@ class AllocationInitiator(ContractNetInitiator):
         for msg in proposals:
             if msg.id != best_proposal.id:
                 rejections.append(msg.create_reply(Performative.REJECT_PROPOSAL))
+
+
+class ReallocationInitiator(AllocationInitiator):
+    def _create_cfp(self, jid: str):
+        cfp: ACLMessage = ACLMessage(
+            to=jid,
+            sender=str(self.agent.jid)
+        )
+        cfp.performative = Performative.CFP
+        cfp.ontology = self.agent.ontology.name
+        cfp.protocol = 'ContractNet'
+        cfp.action = ReallocationRequest.__key__
+        container_data: ContentElement = ContainerData(str(self.agent.jid), self.agent.departure_time)
+        content: ContentElement = ReallocationRequest(container_data)
+        self.agent.content_manager.fill_content(content, cfp)
+        return cfp
 
 
 class DeallocationInitiator(RequestInitiator):

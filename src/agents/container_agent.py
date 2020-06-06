@@ -10,7 +10,7 @@ from src.behaviours.contract_net_initiator import ContractNetInitiator
 from src.behaviours.request_initiator import RequestInitiator
 from src.ontology.ontology import ContentElement
 from src.ontology.port_terminal_ontology import PortTerminalOntology, ContainerData, AllocationProposal, \
-    AllocationConfirmation, AllocationProposalAcceptance, DeallocationRequest
+    AllocationConfirmation, AllocationProposalAcceptance, DeallocationRequest, AllocationRequest
 from src.utils.acl_message import ACLMessage
 from src.utils.performative import Performative
 
@@ -47,7 +47,9 @@ class AllocationInitiator(ContractNetInitiator):
         cfp.performative = Performative.CFP
         cfp.ontology = self.agent.ontology.name
         cfp.protocol = 'ContractNet'
-        content: ContentElement = ContainerData(str(self.agent.jid), self.agent.departure_time)
+        cfp.action = AllocationRequest.__key__
+        container_data: ContentElement = ContainerData(str(self.agent.jid), self.agent.departure_time)
+        content: ContentElement = AllocationRequest(container_data)
         self.agent.content_manager.fill_content(content, cfp)
         return cfp
 
@@ -113,8 +115,14 @@ class ContainerAgent(BaseAgent):
     async def setup(self):
         allocation_mt = Template()
         allocation_mt.set_metadata('protocol', 'ContractNet')
+        allocation_mt.set_metadata('action', AllocationRequest.__key__)
+
+        deallocation_mt = Template()
+        deallocation_mt.set_metadata('protocol', 'ContractNet')
+        deallocation_mt.set_metadata('action', DeallocationRequest.__key__)
+
         self.add_behaviour(AllocationInitiator(), allocation_mt)
-        self.add_behaviour(DeallocationLauncher(self.departure_time))
+        self.add_behaviour(DeallocationLauncher(self.departure_time), deallocation_mt)
         self.log(f'Container agent for {self.name} started.')
 
     @property

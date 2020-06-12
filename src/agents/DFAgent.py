@@ -223,6 +223,13 @@ class HandleSearchBehaviour(HandlerBehaviour):
             if random is not None and random.ontology == DFService.DFServiceOntology.name and \
                     random.action == SearchServiceResponse.__key__:
                 self.result: SearchServiceResponse = self.contentManager.extract_content(random)
+                newList = []
+                if isinstance(self.result.list, collections.Mapping):
+                    newList.append(DFAgentDescription(**self.result.list))
+                elif isinstance(self.result.list, collections.Sequence):
+                    for temp in self.result.list:
+                        newList.append(DFAgentDescription(**temp))
+                self.result.list = newList
                 if self.result:
                     if random.performative == Performative.INFORM:
                         await self.handleResponse(self.result.list)

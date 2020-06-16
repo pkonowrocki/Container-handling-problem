@@ -1,5 +1,4 @@
-from dataclasses import dataclass
-from typing import Dict, Sequence, Optional
+from typing import Dict, Sequence
 
 from src.ontology.ontology import ContentElement, Ontology, Action
 from src.utils.nested_dataclass import nested_dataclass

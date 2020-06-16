@@ -1,5 +1,5 @@
-from dataclasses import dataclass, fields, field
-from typing import Sequence, List
+from dataclasses import dataclass, field
+from typing import List
 
 from src.ontology.content_manager import ContentManager
 from src.ontology.ontology import Ontology, ContentElement

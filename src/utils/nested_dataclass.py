@@ -1,5 +1,4 @@
 from dataclasses import dataclass, is_dataclass
-from typing import List
 
 
 def nested_dataclass(*args, **kwargs):

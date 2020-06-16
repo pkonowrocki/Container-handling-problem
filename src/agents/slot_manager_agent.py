@@ -7,8 +7,9 @@ from spade.template import Template
 from src.agents.base_agent import BaseAgent
 from src.behaviours.contract_net_responder import ContractNetResponder
 from src.behaviours.request_responder import RequestResponder
-from src.ontology.port_terminal_ontology import ContainerData, AllocationProposal, \
-    PortTerminalOntology, AllocationProposalAcceptance, AllocationConfirmation, DeallocationRequest
+from src.ontology.port_terminal_ontology import AllocationProposal, \
+    PortTerminalOntology, AllocationProposalAcceptance, AllocationConfirmation, DeallocationRequest, \
+    AllocationRequest, ReallocationRequest
 from src.utils.acl_message import ACLMessage
 from src.utils.performative import Performative
 
@@ -24,11 +25,12 @@ class AllocationResponder(ContractNetResponder):
         if self.agent.is_full:
             return request.create_reply(Performative.REFUSE)
         content = self.agent.content_manager.extract_content(request)
-        if isinstance(content, ContainerData):
-            if self.agent.has_container(content.id):
+        if isinstance(content, AllocationRequest):
+            if self.agent.has_container(content.container_data.id):
                 return request.create_reply(Performative.REFUSE)
             try:
-                td: float = self.agent.get_timedelta_from_forced_reallocation_to_departure(content.departure_time)
+                td: float = self.agent.get_timedelta_from_forced_reallocation_to_departure(
+                    content.container_data.departure_time)
                 response: ACLMessage = request.create_reply(Performative.PROPOSE)
                 allocation_proposal = AllocationProposal(self.agent.slot_id, int(td))
                 self.agent.content_manager.fill_content(allocation_proposal, response)
@@ -46,6 +48,27 @@ class AllocationResponder(ContractNetResponder):
                 self.agent.add_container(content.container_data.id, content.container_data.departure_time)
                 response = request.create_reply(Performative.INFORM)
                 self.agent.content_manager.fill_content(AllocationConfirmation(self.agent.slot_id), response)
+                return response
+            except ValueError:
+                pass
+        return request.create_reply(Performative.NOT_UNDERSTOOD)
+
+
+class ReallocationResponder(AllocationResponder):
+    async def prepare_response(self, request: ACLMessage) -> ACLMessage:
+        content = self.agent.content_manager.extract_content(request)
+        if isinstance(content, AllocationRequest):
+            if self.agent.has_container(content.container_data.id):
+                self.agent.remove_container(content.container_data.id)
+                return request.create_reply(Performative.REFUSE)
+            if self.agent.is_full:
+                return request.create_reply(Performative.REFUSE)
+            try:
+                td: float = self.agent.get_timedelta_from_forced_reallocation_to_departure(
+                    content.container_data.departure_time)
+                response: ACLMessage = request.create_reply(Performative.PROPOSE)
+                allocation_proposal = AllocationProposal(self.agent.slot_id, int(td))
+                self.agent.content_manager.fill_content(allocation_proposal, response)
                 return response
             except ValueError:
                 pass
@@ -71,6 +94,7 @@ class DeallocationResponder(RequestResponder):
             sender=str(self.agent.jid)
         )
         response.performative = Performative.INFORM
+        response.action = DeallocationRequest.__key__
         return response
 
 
@@ -84,8 +108,16 @@ class SlotManagerAgent(BaseAgent):
     async def setup(self):
         allocation_mt = Template()
         allocation_mt.set_metadata('protocol', 'ContractNet')
+        allocation_mt.set_metadata('action', AllocationRequest.__key__)
+
+        reallocation_mt = Template()
+        reallocation_mt.set_metadata('protocol', 'ContractNet')
+        reallocation_mt.set_metadata('action', ReallocationRequest.__key__)
+
         deallocation_mt = Template()
         deallocation_mt.set_metadata('protocol', 'Request')
+        deallocation_mt.set_metadata('action', DeallocationRequest.__key__)
+
         self._lock = Lock()
         self.add_behaviour(AllocationResponder(), allocation_mt)
         self.add_behaviour(DeallocationResponder(), deallocation_mt)

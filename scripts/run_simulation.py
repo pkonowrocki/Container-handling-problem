@@ -12,7 +12,7 @@ sys.path.extend(['.'])
 from src.agents.container_agent import ContainerAgent
 from src.agents.slot_manager_agent import SlotManagerAgent
 
-DEFAULT_XMPP_SERVER = 'andzelika-thinkpad-t470s-w10dg'
+DEFAULT_XMPP_SERVER = 'localhost'
 
 
 def run_slot_manager_agent(slot_id: str, domain: str, max_height: int):

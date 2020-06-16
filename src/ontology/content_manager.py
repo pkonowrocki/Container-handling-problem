@@ -19,7 +19,7 @@ class ContentManager:
             msg.set_metadata('action', content.__key__)
         msg.body = unparse({content.__key__: asdict(content)}, pretty=True)
 
-    def extract_content(self, msg: ACLMessage) -> Action:
+    def extract_content(self, msg: ACLMessage) -> ContentElement:
         def postprocessor(path: str, key: str, value: str):
             try:
                 return key, int(value)

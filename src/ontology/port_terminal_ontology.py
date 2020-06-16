@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from src.ontology.ontology import Ontology, ContentElement
+from src.ontology.ontology import Ontology, ContentElement, Action
 from src.utils.nested_dataclass import nested_dataclass
 from src.utils.singleton import Singleton
 
@@ -10,6 +10,18 @@ class ContainerData(ContentElement):
     id: str
     departure_time: str
     __key__ = 'container_data'
+
+
+@nested_dataclass
+class AllocationRequest(Action):
+    container_data: ContainerData
+    __key__ = 'allocation_request'
+
+
+@nested_dataclass
+class ReallocationRequest(Action):
+    container_data: ContainerData
+    __key__ = 'reallocation_request'
 
 
 @dataclass
@@ -32,7 +44,7 @@ class AllocationProposalAcceptance(ContentElement):
 
 
 @dataclass
-class DeallocationRequest(ContentElement):
+class DeallocationRequest(Action):
     container_id: str
     __key__ = 'deallocation_request'
 
@@ -43,6 +55,7 @@ class PortTerminalOntology(Ontology):
         super().__init__('port_terminal_ontology')
         # TODO: Add more content elements when needed
         self.add(ContainerData)
+        self.add(AllocationRequest)
         self.add(AllocationProposal)
         self.add(AllocationConfirmation)
         self.add(AllocationProposalAcceptance)

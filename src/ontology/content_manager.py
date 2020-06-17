@@ -1,5 +1,6 @@
 from dataclasses import asdict
 from typing import Dict, Optional
+
 from xmltodict import parse, unparse
 
 from src.ontology.ontology import Ontology, ContentElement, Action

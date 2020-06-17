@@ -59,8 +59,8 @@ class AllocationInitiator(ContractNetInitiator):
 
     def _create_proposals_replies(self, proposals: Sequence[ACLMessage], acceptances: List[ACLMessage],
                                   rejections: List[ACLMessage]):
-        def fetch_allocation_eval(msg: ACLMessage) -> float:
-            content: ContentElement = self.agent.content_manager.extract_content(msg)
+        def fetch_allocation_eval(proposal: ACLMessage) -> float:
+            content: ContentElement = self.agent.content_manager.extract_content(proposal)
             if isinstance(content, AllocationProposal):
                 return content.seconds_from_forced_reallocation_to_departure
             return math.inf

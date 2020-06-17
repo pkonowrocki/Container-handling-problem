@@ -18,12 +18,6 @@ class AllocationRequest(Action):
     __key__ = 'allocation_request'
 
 
-@nested_dataclass
-class ReallocationRequest(Action):
-    container_data: ContainerData
-    __key__ = 'reallocation_request'
-
-
 @dataclass
 class AllocationProposal(ContentElement):
     slot_id: str

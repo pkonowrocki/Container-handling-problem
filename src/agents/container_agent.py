@@ -10,14 +10,18 @@ from src.behaviours.contract_net_initiator import ContractNetInitiator
 from src.behaviours.request_initiator import RequestInitiator
 from src.ontology.ontology import ContentElement
 from src.ontology.port_terminal_ontology import PortTerminalOntology, ContainerData, AllocationProposal, \
-    AllocationConfirmation, AllocationProposalAcceptance, DeallocationRequest, AllocationRequest, ReallocationRequest
+    AllocationConfirmation, AllocationProposalAcceptance, DeallocationRequest, AllocationRequest
 from src.utils.acl_message import ACLMessage
 from src.utils.performative import Performative
 
 
 class AllocationInitiator(ContractNetInitiator):
+    def __init__(self, slot_manager_agents_jids: Sequence[str]):
+        super().__init__()
+        self._slot_manager_agents_jids = slot_manager_agents_jids
+
     async def prepare_cfps(self) -> Sequence[ACLMessage]:
-        cfps = [self._create_cfp(jid) for jid in self.agent.slot_manager_agents_jids]
+        cfps = [self._create_cfp(jid) for jid in self._slot_manager_agents_jids]
         return cfps
 
     def handle_all_responses(self, responses: Sequence[ACLMessage], acceptances: List[ACLMessage],
@@ -72,22 +76,6 @@ class AllocationInitiator(ContractNetInitiator):
                 rejections.append(msg.create_reply(Performative.REJECT_PROPOSAL))
 
 
-class ReallocationInitiator(AllocationInitiator):
-    def _create_cfp(self, jid: str):
-        cfp: ACLMessage = ACLMessage(
-            to=jid,
-            sender=str(self.agent.jid)
-        )
-        cfp.performative = Performative.CFP
-        cfp.ontology = self.agent.ontology.name
-        cfp.protocol = 'ContractNet'
-        cfp.action = ReallocationRequest.__key__
-        container_data: ContentElement = ContainerData(str(self.agent.jid), self.agent.departure_time)
-        content: ContentElement = ReallocationRequest(container_data)
-        self.agent.content_manager.fill_content(content, cfp)
-        return cfp
-
-
 class DeallocationInitiator(RequestInitiator):
 
     def prepare_requests(self) -> Sequence[ACLMessage]:
@@ -137,13 +125,9 @@ class ContainerAgent(BaseAgent):
         deallocation_mt.set_metadata('protocol', 'ContractNet')
         deallocation_mt.set_metadata('action', DeallocationRequest.__key__)
 
-        self.add_behaviour(AllocationInitiator(), allocation_mt)
+        self.add_behaviour(AllocationInitiator(self._slot_manager_agents_jids), allocation_mt)
         self.add_behaviour(DeallocationLauncher(self.departure_time), deallocation_mt)
         self.log(f'Container agent for {self.name} started.')
-
-    @property
-    def slot_manager_agents_jids(self) -> Sequence[str]:
-        return self._slot_manager_agents_jids
 
     @property
     def departure_time(self) -> datetime:

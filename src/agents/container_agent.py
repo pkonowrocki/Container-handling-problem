@@ -1,4 +1,5 @@
 import math
+from asyncio import Lock
 from datetime import datetime
 from typing import Sequence, List
 
@@ -17,11 +18,14 @@ from src.utils.performative import Performative
 
 
 class AllocationInitiator(ContractNetInitiator):
-    def __init__(self, slot_manager_agents_jids: Sequence[str]):
+    def __init__(self, slot_manager_agents_jids: Sequence[str], is_first_allocation: bool = True):
         super().__init__()
         self._slot_manager_agents_jids = slot_manager_agents_jids
+        self._is_first_allocation = is_first_allocation
 
     async def prepare_cfps(self) -> Sequence[ACLMessage]:
+        if self._is_first_allocation:
+            await self.agent.acquire_lock()
         cfps = [self._create_cfp(jid) for jid in self._slot_manager_agents_jids]
         return cfps
 
@@ -36,6 +40,8 @@ class AllocationInitiator(ContractNetInitiator):
             self.agent.log(f'Container successfully allocated in slot no {content.slot_id}')
             self.agent.slot_id = content.slot_id
             self.agent.slot_jid = str(response.sender)
+            if self._is_first_allocation:
+                self.agent.release_lock()
         else:
             self.agent.log('Allocation failed')
             self.agent.kill()
@@ -79,7 +85,8 @@ class AllocationInitiator(ContractNetInitiator):
 
 class DeallocationInitiator(RequestInitiator):
 
-    def prepare_requests(self) -> Sequence[ACLMessage]:
+    async def prepare_requests(self) -> Sequence[ACLMessage]:
+        await self.agent.acquire_lock()
         if self.agent.slot_jid is None:
             raise Exception('Container is not allocated')
         request = ACLMessage(
@@ -93,14 +100,17 @@ class DeallocationInitiator(RequestInitiator):
 
     def handle_refuse(self, response: ACLMessage):
         self.agent.log('Deallocation refused')
+        self.agent.release_lock()
 
     def handle_inform(self, response: ACLMessage):
         self.agent.slot_id = None
         self.agent.slot_jid = None
         self.agent.log(f'Deallocation succeeded. Delay: {str(datetime.now() - self.agent.departure_time)}')
+        self.agent.release_lock()
 
     def handle_failure(self, response: ACLMessage):
         self.agent.log('Deallocation failed')
+        self.agent.release_lock()
 
 
 class DeallocationLauncher(TimeoutBehaviour):
@@ -115,13 +125,15 @@ class ReallocationResponder(RequestResponder):
     async def prepare_response(self, request: ACLMessage) -> ACLMessage:
         content: ContentElement = self.agent.content_manager.extract_content(request)
         if isinstance(content, ReallocationRequest):
+            await self.agent.acquire_lock()
             return request.create_reply(Performative.AGREE)
+        return request.create_reply(Performative.NOT_UNDERSTOOD)
 
     async def prepare_result_notification(self, request: ACLMessage) -> ACLMessage:
         allocation_mt = Template()
         allocation_mt.set_metadata('protocol', 'ContractNet')
         allocation_mt.set_metadata('action', AllocationRequest.__key__)
-        allocation_behaviour = AllocationInitiator(self.agent.available_slots_jids)
+        allocation_behaviour = AllocationInitiator(self.agent.available_slots_jids, False)
 
         self.agent.add_behaviour(allocation_behaviour, allocation_mt)
         await allocation_behaviour.join()
@@ -132,6 +144,7 @@ class ReallocationResponder(RequestResponder):
         )
         response.performative = Performative.INFORM
         response.action = ReallocationRequest.__key__
+        self.agent.release_lock()
         return response
 
 
@@ -156,6 +169,7 @@ class ContainerAgent(BaseAgent):
         reallocation_mt.set_metadata('protocol', 'Request')
         reallocation_mt.set_metadata('action', ReallocationRequest.__key__)
 
+        self._lock = Lock()
         self.add_behaviour(AllocationInitiator(self.available_slots_jids), allocation_mt)
         self.add_behaviour(DeallocationLauncher(self.departure_time), deallocation_mt)
         self.add_behaviour(ReallocationResponder(), reallocation_mt)

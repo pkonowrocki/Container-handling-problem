@@ -21,37 +21,47 @@ class SlotItem(NamedTuple):
 
 class AllocationResponder(ContractNetResponder):
 
-    async def prepare_response(self, request: ACLMessage) -> ACLMessage:
+    async def handle_cfp(self, cfp: ACLMessage) -> ACLMessage:
+        await self.agent.acquire_lock()
         if self.agent.is_full:
-            return request.create_reply(Performative.REFUSE)
-        content = self.agent.content_manager.extract_content(request)
+            self.agent.release_lock()
+            return cfp.create_reply(Performative.REFUSE)
+        content = self.agent.content_manager.extract_content(cfp)
         if isinstance(content, AllocationRequest):
             if self.agent.has_container(content.container_data.id):
-                return request.create_reply(Performative.REFUSE)
+                self.agent.release_lock()
+                return cfp.create_reply(Performative.REFUSE)
             try:
                 td: float = self.agent.get_timedelta_from_forced_reallocation_to_departure(
                     content.container_data.departure_time)
-                response: ACLMessage = request.create_reply(Performative.PROPOSE)
+                response: ACLMessage = cfp.create_reply(Performative.PROPOSE)
                 allocation_proposal = AllocationProposal(self.agent.slot_id, int(td))
                 self.agent.content_manager.fill_content(allocation_proposal, response)
                 return response
             except ValueError:
                 pass
-        return request.create_reply(Performative.NOT_UNDERSTOOD)
+        self.agent.release_lock()
+        return cfp.create_reply(Performative.NOT_UNDERSTOOD)
 
-    async def prepare_result_notification(self, request: ACLMessage) -> ACLMessage:
+    async def handle_accept_proposal(self, accept: ACLMessage) -> ACLMessage:
         if self.agent.is_full:
-            return request.create_reply(Performative.FAILURE)
-        content = self.agent.content_manager.extract_content(request)
+            self.agent.release_lock()
+            return accept.create_reply(Performative.FAILURE)
+        content = self.agent.content_manager.extract_content(accept)
         if isinstance(content, AllocationProposalAcceptance):
             try:
                 self.agent.add_container(content.container_data.id, content.container_data.departure_time)
-                response = request.create_reply(Performative.INFORM)
+                self.agent.release_lock()
+                response = accept.create_reply(Performative.INFORM)
                 self.agent.content_manager.fill_content(AllocationConfirmation(self.agent.slot_id), response)
                 return response
             except ValueError:
                 pass
-        return request.create_reply(Performative.NOT_UNDERSTOOD)
+        self.agent.release_lock()
+        return accept.create_reply(Performative.NOT_UNDERSTOOD)
+
+    async def handle_reject_proposal(self, reject: ACLMessage):
+        self.agent.release_lock()
 
 
 class DeallocationResponder(RequestResponder):
@@ -59,15 +69,18 @@ class DeallocationResponder(RequestResponder):
     async def prepare_response(self, request: ACLMessage) -> ACLMessage:
         content = self.agent.content_manager.extract_content(request)
         if isinstance(content, DeallocationRequest):
+            await self.agent.acquire_lock()
             if self.agent.has_container(content.container_id):
                 return request.create_reply(Performative.AGREE)
             else:
+                self.agent.release_lock()
                 return request.create_reply(Performative.REFUSE)
         return request.create_reply(Performative.NOT_UNDERSTOOD)
 
     async def prepare_result_notification(self, request: ACLMessage) -> ACLMessage:
         content: DeallocationRequest = self.agent.content_manager.extract_content(request)
         self.agent.remove_container(content.container_id)
+        self.agent.release_lock()
         response = ACLMessage(
             to=str(request.sender),
             sender=str(self.agent.jid)
@@ -87,11 +100,11 @@ class SlotManagerAgent(BaseAgent):
     async def setup(self):
         allocation_mt = Template()
         allocation_mt.set_metadata('protocol', 'ContractNet')
-        allocation_mt.set_metadata('action', AllocationRequest.__key__)
+        # allocation_mt.set_metadata('action', AllocationRequest.__key__)
 
         deallocation_mt = Template()
         deallocation_mt.set_metadata('protocol', 'Request')
-        deallocation_mt.set_metadata('action', DeallocationRequest.__key__)
+        # deallocation_mt.set_metadata('action', DeallocationRequest.__key__)
 
         self._lock = Lock()
         self.add_behaviour(AllocationResponder(), allocation_mt)

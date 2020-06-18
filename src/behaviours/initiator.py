@@ -1,13 +1,12 @@
 from abc import ABCMeta
 from typing import Dict, Callable, Optional
 
-from spade.behaviour import CyclicBehaviour
-
+from src.behaviours.base_cyclic_behaviour import BaseCyclicBehaviour
 from src.utils.acl_message import ACLMessage
 from src.utils.performative import Performative
 
 
-class Initiator(CyclicBehaviour, metaclass=ABCMeta):
+class Initiator(BaseCyclicBehaviour, metaclass=ABCMeta):
     def _handle_single_message(self, msg: ACLMessage) -> None:
         handlers_dict: Dict[Performative, Callable[[ACLMessage], None]] = {
             Performative.AGREE: self.handle_agree,
@@ -38,9 +37,3 @@ class Initiator(CyclicBehaviour, metaclass=ABCMeta):
 
     def handle_failure(self, response: ACLMessage):
         pass
-
-    async def receive(self, timeout: float = None) -> Optional[ACLMessage]:
-        result = await super().receive(timeout)
-        if result is not None:
-            result.__class__ = ACLMessage
-        return result

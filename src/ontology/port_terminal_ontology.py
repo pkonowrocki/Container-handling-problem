@@ -43,6 +43,11 @@ class DeallocationRequest(Action):
     __key__ = 'deallocation_request'
 
 
+@dataclass
+class ReallocationRequest(Action):
+    __key__ = 'reallocation_request'
+
+
 @Singleton
 class PortTerminalOntology(Ontology):
     def __init__(self):

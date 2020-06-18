@@ -8,9 +8,10 @@ from spade.template import Template
 from src.agents.base_agent import BaseAgent
 from src.behaviours.contract_net_initiator import ContractNetInitiator
 from src.behaviours.request_initiator import RequestInitiator
+from src.behaviours.request_responder import RequestResponder
 from src.ontology.ontology import ContentElement
 from src.ontology.port_terminal_ontology import PortTerminalOntology, ContainerData, AllocationProposal, \
-    AllocationConfirmation, AllocationProposalAcceptance, DeallocationRequest, AllocationRequest
+    AllocationConfirmation, AllocationProposalAcceptance, DeallocationRequest, AllocationRequest, ReallocationRequest
 from src.utils.acl_message import ACLMessage
 from src.utils.performative import Performative
 
@@ -94,6 +95,8 @@ class DeallocationInitiator(RequestInitiator):
         self.agent.log('Deallocation refused')
 
     def handle_inform(self, response: ACLMessage):
+        self.agent.slot_id = None
+        self.agent.slot_jid = None
         self.agent.log(f'Deallocation succeeded. Delay: {str(datetime.now() - self.agent.departure_time)}')
 
     def handle_failure(self, response: ACLMessage):
@@ -106,6 +109,30 @@ class DeallocationLauncher(TimeoutBehaviour):
         self.agent.add_behaviour(deallocation_initiator)
         await deallocation_initiator.join()
         await self.agent.stop()
+
+
+class ReallocationResponder(RequestResponder):
+    async def prepare_response(self, request: ACLMessage) -> ACLMessage:
+        content: ContentElement = self.agent.content_manager.extract_content(request)
+        if isinstance(content, ReallocationRequest):
+            return request.create_reply(Performative.AGREE)
+
+    async def prepare_result_notification(self, request: ACLMessage) -> ACLMessage:
+        allocation_mt = Template()
+        allocation_mt.set_metadata('protocol', 'ContractNet')
+        allocation_mt.set_metadata('action', AllocationRequest.__key__)
+        allocation_behaviour = AllocationInitiator(self.agent.available_slots_jids)
+
+        self.agent.add_behaviour(allocation_behaviour, allocation_mt)
+        await allocation_behaviour.join()
+
+        response = ACLMessage(
+            to=str(request.sender),
+            sender=str(self.agent.jid)
+        )
+        response.performative = Performative.INFORM
+        response.action = ReallocationRequest.__key__
+        return response
 
 
 class ContainerAgent(BaseAgent):
@@ -125,8 +152,13 @@ class ContainerAgent(BaseAgent):
         deallocation_mt.set_metadata('protocol', 'ContractNet')
         deallocation_mt.set_metadata('action', DeallocationRequest.__key__)
 
-        self.add_behaviour(AllocationInitiator(self._slot_manager_agents_jids), allocation_mt)
+        reallocation_mt = Template()
+        reallocation_mt.set_metadata('protocol', 'Request')
+        reallocation_mt.set_metadata('action', ReallocationRequest.__key__)
+
+        self.add_behaviour(AllocationInitiator(self.available_slots_jids), allocation_mt)
         self.add_behaviour(DeallocationLauncher(self.departure_time), deallocation_mt)
+        self.add_behaviour(ReallocationResponder(), reallocation_mt)
         self.log(f'Container agent for {self.name} started.')
 
     @property
@@ -148,3 +180,7 @@ class ContainerAgent(BaseAgent):
     @slot_jid.setter
     def slot_jid(self, value: str):
         self._slot_jid = value
+
+    @property
+    def available_slots_jids(self):
+        return [jid for jid in self._slot_manager_agents_jids if jid != self.slot_jid]

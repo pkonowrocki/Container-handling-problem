@@ -1,7 +1,7 @@
 import math
 from asyncio import Lock
 from datetime import datetime
-from typing import Sequence, List
+from typing import Sequence, List, NamedTuple
 
 from spade.behaviour import TimeoutBehaviour
 from spade.template import Template
@@ -15,6 +15,11 @@ from src.ontology.port_terminal_ontology import PortTerminalOntology, ContainerD
     AllocationConfirmation, AllocationProposalAcceptance, DeallocationRequest, AllocationRequest, ReallocationRequest
 from src.utils.acl_message import ACLMessage
 from src.utils.performative import Performative
+
+
+class SlotJid(NamedTuple):
+    slot_id: int
+    jid: str
 
 
 class AllocationInitiator(ContractNetInitiator):
@@ -130,13 +135,15 @@ class ReallocationResponder(RequestResponder):
         return request.create_reply(Performative.NOT_UNDERSTOOD)
 
     async def prepare_result_notification(self, request: ACLMessage) -> ACLMessage:
-        allocation_mt = Template()
-        allocation_mt.set_metadata('protocol', 'ContractNet')
-        allocation_mt.set_metadata('action', AllocationRequest.__key__)
-        allocation_behaviour = AllocationInitiator(self.agent.available_slots_jids, False)
+        content: ReallocationRequest = self.agent.content_manager.extract_content(request)
+        if content.slot_id == self.agent.slot_id:
+            allocation_mt = Template()
+            allocation_mt.set_metadata('protocol', 'ContractNet')
+            allocation_mt.set_metadata('action', AllocationRequest.__key__)
+            allocation_behaviour = AllocationInitiator(self.agent.available_slots_jids, False)
 
-        self.agent.add_behaviour(allocation_behaviour, allocation_mt)
-        await allocation_behaviour.join()
+            self.agent.add_behaviour(allocation_behaviour, allocation_mt)
+            await allocation_behaviour.join()
 
         response = ACLMessage(
             to=str(request.sender),
@@ -144,12 +151,14 @@ class ReallocationResponder(RequestResponder):
         )
         response.performative = Performative.INFORM
         response.action = ReallocationRequest.__key__
+        response.protocol = 'Request'
+        response.ontology = self.agent.ontology.name
         self.agent.release_lock()
         return response
 
 
 class ContainerAgent(BaseAgent):
-    def __init__(self, jid: str, password: str, slot_manager_agents_jids: Sequence[str], departure_time: datetime):
+    def __init__(self, jid: str, password: str, slot_manager_agents_jids: Sequence[SlotJid], departure_time: datetime):
         super().__init__(jid, password, PortTerminalOntology.instance())
         self._slot_manager_agents_jids = slot_manager_agents_jids  # TODO: Replace this line with fetching jids from DF
         self._departure_time: datetime = departure_time
@@ -196,5 +205,5 @@ class ContainerAgent(BaseAgent):
         self._slot_jid = value
 
     @property
-    def available_slots_jids(self):
-        return [jid for jid in self._slot_manager_agents_jids if jid != self.slot_jid]
+    def available_slots_jids(self) -> Sequence[str]:
+        return [jid for slot_id, jid in self._slot_manager_agents_jids if slot_id != self.slot_id]

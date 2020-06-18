@@ -45,6 +45,7 @@ class DeallocationRequest(Action):
 
 @dataclass
 class ReallocationRequest(Action):
+    slot_id: str
     __key__ = 'reallocation_request'
 
 
@@ -59,3 +60,4 @@ class PortTerminalOntology(Ontology):
         self.add(AllocationConfirmation)
         self.add(AllocationProposalAcceptance)
         self.add(DeallocationRequest)
+        self.add(ReallocationRequest)

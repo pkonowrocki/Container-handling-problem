@@ -39,6 +39,7 @@ class AllocationResponder(ContractNetResponder):
                 response: ACLMessage = cfp.create_reply(Performative.PROPOSE)
                 allocation_proposal = AllocationProposal(self.agent.slot_id, int(td))
                 self.agent.content_manager.fill_content(allocation_proposal, response)
+                self.agent.release_lock()
                 return response
             except ValueError:
                 pass
@@ -46,6 +47,7 @@ class AllocationResponder(ContractNetResponder):
         return cfp.create_reply(Performative.NOT_UNDERSTOOD)
 
     async def handle_accept_proposal(self, accept: ACLMessage) -> ACLMessage:
+        await self.agent.acquire_lock()
         if self.agent.is_full:
             self.agent.release_lock()
             return accept.create_reply(Performative.FAILURE)
@@ -67,7 +69,7 @@ class AllocationResponder(ContractNetResponder):
         return accept.create_reply(Performative.NOT_UNDERSTOOD)
 
     async def handle_reject_proposal(self, reject: ACLMessage):
-        self.agent.release_lock()
+        pass
 
 
 class DeallocationResponder(RequestResponder):
@@ -95,6 +97,8 @@ class DeallocationResponder(RequestResponder):
             to=str(request.sender),
             sender=str(self.agent.jid)
         )
+        request.protocol = 'Request'
+        request.ontology = self.agent.ontology.name
         response.performative = Performative.INFORM
         response.action = DeallocationRequest.__key__
         return response
@@ -114,14 +118,14 @@ class ReallocationInitiator(RequestInitiator):
         super().__init__()
         self._container_jid = container_jid
 
-    def prepare_requests(self) -> Sequence[ACLMessage]:
+    async def prepare_requests(self) -> Sequence[ACLMessage]:
         request = ACLMessage(
             to=self._container_jid,
             sender=str(self.agent.jid)
         )
         request.protocol = 'Request'
         request.ontology = self.agent.ontology.name
-        self.agent.content_manager.fill_content(ReallocationRequest(), request)
+        self.agent.content_manager.fill_content(ReallocationRequest(self.agent.slot_id), request)
         return [request]
 
     def handle_refuse(self, response: ACLMessage):
@@ -165,7 +169,9 @@ class SlotManagerAgent(BaseAgent):
             return 0
         parsed_departure_time = datetime.fromisoformat(departure_time)
         return max(
-            max([(parsed_departure_time - departure_time) for _, departure_time in self._containers]).total_seconds(),
+            max(
+                [(parsed_departure_time - departure_time) for _, departure_time, _ in self._containers]
+            ).total_seconds(),
             0
         )
 

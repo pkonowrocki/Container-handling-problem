@@ -28,7 +28,7 @@ class RequestInitiator(Initiator):
 
     async def run(self):
         if self._state == RequestInitiatorState.INITIALISED:
-            requests: Sequence[ACLMessage] = self.prepare_requests()
+            requests: Sequence[ACLMessage] = await self.prepare_requests()
             self._requests_count = len(requests)
             self._expected_result_notifications_count = len(requests)
             await asyncio.wait([self.send(msg) for msg in requests])
@@ -62,7 +62,7 @@ class RequestInitiator(Initiator):
         return self._state == RequestInitiatorState.FINALIZED
 
     @abstractmethod
-    def prepare_requests(self) -> Sequence[ACLMessage]:
+    async def prepare_requests(self) -> Sequence[ACLMessage]:
         pass
 
     def handle_all_responses(self, responses: Sequence[ACLMessage]):

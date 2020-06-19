@@ -18,12 +18,6 @@ class AllocationRequest(Action):
     __key__ = 'allocation_request'
 
 
-@nested_dataclass
-class ReallocationRequest(Action):
-    container_data: ContainerData
-    __key__ = 'reallocation_request'
-
-
 @dataclass
 class AllocationProposal(ContentElement):
     slot_id: str
@@ -49,6 +43,12 @@ class DeallocationRequest(Action):
     __key__ = 'deallocation_request'
 
 
+@dataclass
+class ReallocationRequest(Action):
+    slot_id: str
+    __key__ = 'reallocation_request'
+
+
 @Singleton
 class PortTerminalOntology(Ontology):
     def __init__(self):
@@ -60,3 +60,4 @@ class PortTerminalOntology(Ontology):
         self.add(AllocationConfirmation)
         self.add(AllocationProposalAcceptance)
         self.add(DeallocationRequest)
+        self.add(ReallocationRequest)

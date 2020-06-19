@@ -59,7 +59,9 @@ class ContractNetInitiator(Initiator):
             if result_notification is not None:
                 self._handle_single_message(result_notification)
                 self._result_notifications.append(result_notification)
-                self._result_notifications_count += 0
+                self._result_notifications_count += 1
+                if self._result_notifications_count >= self._expected_result_notifications_count:
+                    self._state = ContractNetInitiatorState.ALL_RESULT_NOTIFICATIONS_RECEIVED
             if self._result_notifications_count >= self._expected_result_notifications_count:
                 self._state = ContractNetInitiatorState.ALL_RESULT_NOTIFICATIONS_RECEIVED
             return

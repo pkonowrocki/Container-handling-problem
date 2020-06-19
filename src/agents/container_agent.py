@@ -1,6 +1,7 @@
 import math
+from asyncio import Lock
 from datetime import datetime
-from typing import Sequence, List
+from typing import Sequence, List, NamedTuple
 
 from spade.behaviour import TimeoutBehaviour
 from spade.template import Template
@@ -8,6 +9,7 @@ from spade.template import Template
 from src.agents.base_agent import BaseAgent
 from src.behaviours.contract_net_initiator import ContractNetInitiator
 from src.behaviours.request_initiator import RequestInitiator
+from src.behaviours.request_responder import RequestResponder
 from src.ontology.ontology import ContentElement
 from src.ontology.port_terminal_ontology import PortTerminalOntology, ContainerData, AllocationProposal, \
     AllocationConfirmation, AllocationProposalAcceptance, DeallocationRequest, AllocationRequest, ReallocationRequest
@@ -15,9 +17,21 @@ from src.utils.acl_message import ACLMessage
 from src.utils.performative import Performative
 
 
+class SlotJid(NamedTuple):
+    slot_id: int
+    jid: str
+
+
 class AllocationInitiator(ContractNetInitiator):
+    def __init__(self, slot_manager_agents_jids: Sequence[str], is_first_allocation: bool = True):
+        super().__init__()
+        self._slot_manager_agents_jids = slot_manager_agents_jids
+        self._is_first_allocation = is_first_allocation
+
     async def prepare_cfps(self) -> Sequence[ACLMessage]:
-        cfps = [self._create_cfp(jid) for jid in self.agent.slot_manager_agents_jids]
+        if self._is_first_allocation:
+            await self.agent.acquire_lock()
+        cfps = [self._create_cfp(jid) for jid in self._slot_manager_agents_jids]
         return cfps
 
     def handle_all_responses(self, responses: Sequence[ACLMessage], acceptances: List[ACLMessage],
@@ -31,6 +45,8 @@ class AllocationInitiator(ContractNetInitiator):
             self.agent.log(f'Container successfully allocated in slot no {content.slot_id}')
             self.agent.slot_id = content.slot_id
             self.agent.slot_jid = str(response.sender)
+            if self._is_first_allocation:
+                self.agent.release_lock()
         else:
             self.agent.log('Allocation failed')
             self.agent.kill()
@@ -55,8 +71,8 @@ class AllocationInitiator(ContractNetInitiator):
 
     def _create_proposals_replies(self, proposals: Sequence[ACLMessage], acceptances: List[ACLMessage],
                                   rejections: List[ACLMessage]):
-        def fetch_allocation_eval(msg: ACLMessage) -> float:
-            content: ContentElement = self.agent.content_manager.extract_content(msg)
+        def fetch_allocation_eval(proposal: ACLMessage) -> float:
+            content: ContentElement = self.agent.content_manager.extract_content(proposal)
             if isinstance(content, AllocationProposal):
                 return content.seconds_from_forced_reallocation_to_departure
             return math.inf
@@ -72,25 +88,10 @@ class AllocationInitiator(ContractNetInitiator):
                 rejections.append(msg.create_reply(Performative.REJECT_PROPOSAL))
 
 
-class ReallocationInitiator(AllocationInitiator):
-    def _create_cfp(self, jid: str):
-        cfp: ACLMessage = ACLMessage(
-            to=jid,
-            sender=str(self.agent.jid)
-        )
-        cfp.performative = Performative.CFP
-        cfp.ontology = self.agent.ontology.name
-        cfp.protocol = 'ContractNet'
-        cfp.action = ReallocationRequest.__key__
-        container_data: ContentElement = ContainerData(str(self.agent.jid), self.agent.departure_time)
-        content: ContentElement = ReallocationRequest(container_data)
-        self.agent.content_manager.fill_content(content, cfp)
-        return cfp
-
-
 class DeallocationInitiator(RequestInitiator):
 
-    def prepare_requests(self) -> Sequence[ACLMessage]:
+    async def prepare_requests(self) -> Sequence[ACLMessage]:
+        await self.agent.acquire_lock()
         if self.agent.slot_jid is None:
             raise Exception('Container is not allocated')
         request = ACLMessage(
@@ -104,12 +105,17 @@ class DeallocationInitiator(RequestInitiator):
 
     def handle_refuse(self, response: ACLMessage):
         self.agent.log('Deallocation refused')
+        self.agent.release_lock()
 
     def handle_inform(self, response: ACLMessage):
+        self.agent.slot_id = None
+        self.agent.slot_jid = None
         self.agent.log(f'Deallocation succeeded. Delay: {str(datetime.now() - self.agent.departure_time)}')
+        self.agent.release_lock()
 
     def handle_failure(self, response: ACLMessage):
         self.agent.log('Deallocation failed')
+        self.agent.release_lock()
 
 
 class DeallocationLauncher(TimeoutBehaviour):
@@ -120,8 +126,39 @@ class DeallocationLauncher(TimeoutBehaviour):
         await self.agent.stop()
 
 
+class ReallocationResponder(RequestResponder):
+    async def prepare_response(self, request: ACLMessage) -> ACLMessage:
+        content: ContentElement = self.agent.content_manager.extract_content(request)
+        if isinstance(content, ReallocationRequest):
+            await self.agent.acquire_lock()
+            return request.create_reply(Performative.AGREE)
+        return request.create_reply(Performative.NOT_UNDERSTOOD)
+
+    async def prepare_result_notification(self, request: ACLMessage) -> ACLMessage:
+        content: ReallocationRequest = self.agent.content_manager.extract_content(request)
+        if content.slot_id == self.agent.slot_id:
+            allocation_mt = Template()
+            allocation_mt.set_metadata('protocol', 'ContractNet')
+            allocation_mt.set_metadata('action', AllocationRequest.__key__)
+            allocation_behaviour = AllocationInitiator(self.agent.available_slots_jids, False)
+
+            self.agent.add_behaviour(allocation_behaviour, allocation_mt)
+            await allocation_behaviour.join()
+
+        response = ACLMessage(
+            to=str(request.sender),
+            sender=str(self.agent.jid)
+        )
+        response.performative = Performative.INFORM
+        response.action = ReallocationRequest.__key__
+        response.protocol = 'Request'
+        response.ontology = self.agent.ontology.name
+        self.agent.release_lock()
+        return response
+
+
 class ContainerAgent(BaseAgent):
-    def __init__(self, jid: str, password: str, slot_manager_agents_jids: Sequence[str], departure_time: datetime):
+    def __init__(self, jid: str, password: str, slot_manager_agents_jids: Sequence[SlotJid], departure_time: datetime):
         super().__init__(jid, password, PortTerminalOntology.instance())
         self._slot_manager_agents_jids = slot_manager_agents_jids  # TODO: Replace this line with fetching jids from DF
         self._departure_time: datetime = departure_time
@@ -137,13 +174,15 @@ class ContainerAgent(BaseAgent):
         deallocation_mt.set_metadata('protocol', 'ContractNet')
         deallocation_mt.set_metadata('action', DeallocationRequest.__key__)
 
-        self.add_behaviour(AllocationInitiator(), allocation_mt)
-        self.add_behaviour(DeallocationLauncher(self.departure_time), deallocation_mt)
-        self.log(f'Container agent for {self.name} started.')
+        reallocation_mt = Template()
+        reallocation_mt.set_metadata('protocol', 'Request')
+        reallocation_mt.set_metadata('action', ReallocationRequest.__key__)
 
-    @property
-    def slot_manager_agents_jids(self) -> Sequence[str]:
-        return self._slot_manager_agents_jids
+        self._lock = Lock()
+        self.add_behaviour(AllocationInitiator(self.available_slots_jids), allocation_mt)
+        self.add_behaviour(DeallocationLauncher(self.departure_time), deallocation_mt)
+        self.add_behaviour(ReallocationResponder(), reallocation_mt)
+        self.log(f'Container agent for {self.name} started.')
 
     @property
     def departure_time(self) -> datetime:
@@ -164,3 +203,7 @@ class ContainerAgent(BaseAgent):
     @slot_jid.setter
     def slot_jid(self, value: str):
         self._slot_jid = value
+
+    @property
+    def available_slots_jids(self) -> Sequence[str]:
+        return [jid for slot_id, jid in self._slot_manager_agents_jids if slot_id != self.slot_id]

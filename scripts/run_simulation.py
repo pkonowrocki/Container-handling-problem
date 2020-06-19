@@ -1,25 +1,29 @@
+import asyncio
 import multiprocessing
 import signal
 import sys
 import time
 from datetime import datetime, timedelta
-from typing import Sequence, List
+from typing import Sequence, List, Awaitable
 
 import click
 from aioxmpp import JID
+
+from src.agents.DFAgent import DFService, DFAgent
 
 sys.path.extend(['.'])
 
 from src.agents.container_agent import ContainerAgent, SlotJid
 from src.agents.slot_manager_agent import SlotManagerAgent
 
-DEFAULT_XMPP_SERVER = 'localhost'
+DEFAULT_XMPP_SERVER = 'host.docker.internal'
 
 
 def run_slot_manager_agent(slot_id: str, domain: str, max_height: int):
     slot_manager_agent = SlotManagerAgent(f'slot_{slot_id}@{domain}', 'slot_password', slot_id, max_height)
     future = slot_manager_agent.start()
     future.result()
+    return slot_manager_agent
 
 
 def run_container_agent(container_id: str, domain: str, departure_time: datetime,
@@ -27,11 +31,7 @@ def run_container_agent(container_id: str, domain: str, departure_time: datetime
     container_agent = ContainerAgent(f'container_{container_id}@{domain}', 'container_password',
                                      slot_manager_agents_jids, departure_time)
     container_agent.start()
-
-
-def initializer():
-    """Ignore SIGINT in child workers."""
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    return container_agent
 
 
 @click.command()
@@ -40,29 +40,34 @@ def initializer():
 @click.option('--slot-count', default=4, type=int, help='Slots count')
 @click.option('--container-count', default=16, type=int, help='Container count')
 def main(domain: str, max_slot_height: int, slot_count: int, container_count: int):
+    agents = []
     try:
-        pool = multiprocessing.Pool(slot_count + container_count, initializer=initializer)
         slot_manager_agents_jids: List[SlotJid] = []
+
+        df = DFAgent(f'dfagent@{domain}', 'password1234')
+        future = df.start()
+        future.result()
+        DFService.init(df)
+        df.web.start(hostname="localhost", port="9999")
+        agents.append(df)
 
         for i in range(slot_count):
             slot_manager_agents_jids.append(SlotJid(i, f'slot_{i}@{domain}'))
-            pool.apply_async(run_slot_manager_agent, args=(i, domain, max_slot_height))
+            agents.append(run_slot_manager_agent(i, domain, max_slot_height))
 
-        time.sleep(5)
+        asyncio.run(asyncio.sleep(3))
         for i in range(container_count):
-            pool.apply_async(run_container_agent,
-                             args=(i, domain, datetime.now() + timedelta(0, 40), slot_manager_agents_jids))
-            time.sleep(3)
+            agents.append(run_container_agent(i, domain, datetime.now() + timedelta(0, 40), slot_manager_agents_jids))
+            asyncio.run(asyncio.sleep(3))
 
         while True:
-            time.sleep(1)
+            asyncio.run(asyncio.sleep(1))
 
-        # pool.close()
     except KeyboardInterrupt:
         print("Agent System terminated")
     finally:
-        pool.terminate()
-        pool.join()
+        for agent in agents:
+            agent.stop()
 
 
 if __name__ == "__main__":

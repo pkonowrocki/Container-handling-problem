@@ -4,14 +4,19 @@ from typing import List, NamedTuple, Sequence
 
 from spade.template import Template
 
+from src.agents.DFAgent import DFService, HandleRegisterRequestBehaviour
 from src.agents.base_agent import BaseAgent
 from src.behaviours.contract_net_responder import ContractNetResponder
 from src.behaviours.request_initiator import RequestInitiator
 from src.behaviours.request_responder import RequestResponder
+from src.ontology.directory_facilitator_ontology import DFAgentDescription, ServiceDescription
 from src.ontology.port_terminal_ontology import AllocationProposal, \
     PortTerminalOntology, AllocationProposalAcceptance, AllocationConfirmation, DeallocationRequest, \
     AllocationRequest, ReallocationRequest
 from src.utils.acl_message import ACLMessage
+from src.utils.content_language import ContentLanguage
+from src.utils.interaction_protocol import InteractionProtocol
+from src.utils.jid_utils import jid_to_str
 from src.utils.performative import Performative
 
 
@@ -135,6 +140,18 @@ class ReallocationInitiator(RequestInitiator):
         raise Exception('Reallocation error occurred')
 
 
+class HandleRegistrationBehaviour(HandleRegisterRequestBehaviour):
+    def __init__(self):
+        super(HandleRegistrationBehaviour, self).__init__()
+
+    async def handleFailure(self, result: ACLMessage):
+        self.agent.log('Registration problem')
+        raise Exception('Registration problem')
+
+    async def handleAccept(self, result: ACLMessage):
+        self.agent.log('Registered')
+
+
 class SlotManagerAgent(BaseAgent):
     def __init__(self, jid: str, password: str, slot_id: str, max_height: int):
         super().__init__(jid, password, PortTerminalOntology.instance())
@@ -150,7 +167,7 @@ class SlotManagerAgent(BaseAgent):
         deallocation_mt = Template()
         deallocation_mt.set_metadata('protocol', 'Request')
         deallocation_mt.set_metadata('action', DeallocationRequest.__key__)
-
+        await self.register_service()
         self._lock = Lock()
         self.add_behaviour(AllocationResponder(), allocation_mt)
         self.add_behaviour(DeallocationResponder(), deallocation_mt)
@@ -193,3 +210,12 @@ class SlotManagerAgent(BaseAgent):
                 break
             blocking_containers.append(cur_container)
         return blocking_containers
+
+    async def register_service(self):
+        self.log('start registration')
+        serviceDescription: ServiceDescription = ServiceDescription({
+            'slot_id': self._slot_id
+        })
+        dfd: DFAgentDescription = DFAgentDescription(jid_to_str(self.jid), '', 'port_terminal_ontology',
+                                                     ContentLanguage.XML, serviceDescription)
+        await DFService.register(self, dfd, HandleRegistrationBehaviour())

@@ -12,7 +12,7 @@ from src.behaviours.request_initiator import RequestInitiator
 from src.behaviours.request_responder import RequestResponder
 from src.ontology.ontology import ContentElement
 from src.ontology.port_terminal_ontology import PortTerminalOntology, ContainerData, AllocationProposal, \
-    AllocationConfirmation, AllocationProposalAcceptance, DeallocationRequest, AllocationRequest, ReallocationRequest
+    AllocationConfirmation, AllocationProposalAcceptance, SelfDeallocationRequest, AllocationRequest, ReallocationRequest
 from src.utils.acl_message import ACLMessage
 from src.utils.performative import Performative
 
@@ -100,7 +100,7 @@ class DeallocationInitiator(RequestInitiator):
         )
         request.protocol = 'Request'
         request.ontology = self.agent.ontology.name
-        self.agent.content_manager.fill_content(DeallocationRequest(self.agent.jid), request)
+        self.agent.content_manager.fill_content(SelfDeallocationRequest(self.agent.jid), request)
         return [request]
 
     def handle_refuse(self, response: ACLMessage):
@@ -172,7 +172,7 @@ class ContainerAgent(BaseAgent):
 
         deallocation_mt = Template()
         deallocation_mt.set_metadata('protocol', 'ContractNet')
-        deallocation_mt.set_metadata('action', DeallocationRequest.__key__)
+        deallocation_mt.set_metadata('action', SelfDeallocationRequest.__key__)
 
         reallocation_mt = Template()
         reallocation_mt.set_metadata('protocol', 'Request')

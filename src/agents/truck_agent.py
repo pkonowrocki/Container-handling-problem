@@ -15,6 +15,7 @@ class ContainersDeallocationInititiator(RequestInitiator):
         request = ACLMessage(to=self.agent.port_manager_agent_jid)
         request.protocol = 'Request'
         request.ontology = self.agent.ontology.name
+        request.performative = Performative.REQUEST
         self.agent.content_manager.fill_content(ContainersDeallocationRequest(self.agent.containers_jids), request)
         return [request]
 
@@ -29,8 +30,8 @@ class ContainersDeallocationLauncher(TimeoutBehaviour):
         self.agent.add_behaviour(deallocate_containers_behaviour)
         await deallocate_containers_behaviour.join()
 
-    def on_end(self):
-        self.agent.kill()
+    async def on_end(self):
+        await self.agent.stop()
 
 
 class TruckAgent(BaseAgent):
@@ -41,7 +42,7 @@ class TruckAgent(BaseAgent):
         self._arrival_time = arrival_time
         self._port_manager_agent_jid = port_manager_agent_jid
 
-    def setup(self):
+    async def setup(self):
         self.add_behaviour(ContainersDeallocationLauncher(self._arrival_time))
 
     @property

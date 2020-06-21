@@ -97,8 +97,8 @@ class SelfDeallocationResponder(RequestResponder):
             to=str(request.sender),
             sender=str(self.agent.jid)
         )
-        request.protocol = 'Request'
-        request.ontology = self.agent.ontology.name
+        response.protocol = 'Request'
+        response.ontology = self.agent.ontology.name
         response.performative = Performative.INFORM
         response.action = SelfDeallocationRequest.__key__
         return response
@@ -119,10 +119,8 @@ class ReallocationInitiator(RequestInitiator):
         self._container_jid = container_jid
 
     async def prepare_requests(self) -> Sequence[ACLMessage]:
-        request = ACLMessage(
-            to=self._container_jid,
-            sender=str(self.agent.jid)
-        )
+        request = ACLMessage(to=self._container_jid)
+        request.performative = Performative.REQUEST
         request.protocol = 'Request'
         request.ontology = self.agent.ontology.name
         self.agent.content_manager.fill_content(ReallocationRequest(self.agent.slot_id), request)

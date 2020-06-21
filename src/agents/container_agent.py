@@ -56,10 +56,7 @@ class AllocationInitiator(ContractNetInitiator):
         self.agent.kill()
 
     def _create_cfp(self, jid: str):
-        cfp: ACLMessage = ACLMessage(
-            to=jid,
-            sender=str(self.agent.jid)
-        )
+        cfp: ACLMessage = ACLMessage(to=jid)
         cfp.performative = Performative.CFP
         cfp.ontology = self.agent.ontology.name
         cfp.protocol = 'ContractNet'
@@ -91,31 +88,25 @@ class AllocationInitiator(ContractNetInitiator):
 class SelfDeallocationInitiator(RequestInitiator):
 
     async def prepare_requests(self) -> Sequence[ACLMessage]:
-        await self.agent.acquire_lock()
         if self.agent.slot_jid is None:
             raise Exception('Container is not allocated')
-        request = ACLMessage(
-            to=self.agent.slot_jid,
-            sender=str(self.agent.jid)
-        )
+        request = ACLMessage(to=self.agent.slot_jid)
         request.protocol = 'Request'
         request.ontology = self.agent.ontology.name
+        request.performative = Performative.REQUEST
         self.agent.content_manager.fill_content(SelfDeallocationRequest(self.agent.jid), request)
         return [request]
 
     def handle_refuse(self, response: ACLMessage):
         self.agent.log('Deallocation refused')
-        self.agent.release_lock()
 
     def handle_inform(self, response: ACLMessage):
         self.agent.slot_id = None
         self.agent.slot_jid = None
         self.agent.log(f'Deallocation succeeded. Delay: {str(datetime.now() - self.agent.departure_time)}')
-        self.agent.release_lock()
 
     def handle_failure(self, response: ACLMessage):
         self.agent.log('Deallocation failed')
-        self.agent.release_lock()
 
 
 class DeallocationResponder(RequestResponder):
@@ -135,10 +126,7 @@ class DeallocationResponder(RequestResponder):
 
         await self_deallocation_behaviour.join()
 
-        response = ACLMessage(
-            to=str(request.sender),
-            sender=str(self.agent.jid)
-        )
+        response = ACLMessage(to=str(request.sender))
         response.performative = Performative.INFORM
         response.action = DeallocationRequest.__key__
         response.protocol = 'Request'
@@ -166,10 +154,7 @@ class ReallocationResponder(RequestResponder):
             self.agent.add_behaviour(allocation_behaviour, allocation_mt)
             await allocation_behaviour.join()
 
-        response = ACLMessage(
-            to=str(request.sender),
-            sender=str(self.agent.jid)
-        )
+        response = ACLMessage(to=str(request.sender))
         response.performative = Performative.INFORM
         response.action = ReallocationRequest.__key__
         response.protocol = 'Request'
@@ -192,7 +177,7 @@ class ContainerAgent(BaseAgent):
         allocation_mt.set_metadata('action', AllocationRequest.__key__)
 
         deallocation_mt = Template()
-        deallocation_mt.set_metadata('protocol', 'ContractNet')
+        deallocation_mt.set_metadata('protocol', 'Request')
         deallocation_mt.set_metadata('action', DeallocationRequest.__key__)
 
         reallocation_mt = Template()

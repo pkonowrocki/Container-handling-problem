@@ -74,4 +74,5 @@ class PortTerminalOntology(Ontology):
         self.add(AllocationProposalAcceptance)
         self.add(SelfDeallocationRequest)
         self.add(ReallocationRequest)
+        self.add(ContainersDeallocationRequest)
         self.add(DeallocationRequest)

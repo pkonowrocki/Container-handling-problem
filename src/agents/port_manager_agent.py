@@ -6,27 +6,24 @@ from src.agents.base_agent import BaseAgent
 from src.behaviours.request_initiator import RequestInitiator
 from src.behaviours.request_responder import RequestResponder
 from src.ontology.ontology import ContentElement
-from src.ontology.port_terminal_ontology import ContainersDeallocationRequest, DeallocationRequest
+from src.ontology.port_terminal_ontology import ContainersDeallocationRequest, DeallocationRequest, PortTerminalOntology
 from src.utils.acl_message import ACLMessage
 from src.utils.performative import Performative
 
 
 class DeallocationInitiator(RequestInitiator):
-    def __init__(self, containers_jids: Sequence[str]):
+    def __init__(self, container_jid: str):
         super().__init__()
-        self._containers_jids = containers_jids
+        self._container_jid = container_jid
 
     async def prepare_requests(self) -> Sequence[ACLMessage]:
-        return [self._create_request(container_jid) for container_jid in self._containers_jids]
-
-    def _create_request(self, container_jid):
-        request = ACLMessage(to=container_jid)
+        request = ACLMessage(to=self._container_jid)
         request.performative = Performative.REQUEST
-        request.protocol = 'Request',
+        request.protocol = 'Request'
         request.ontology = self.agent.ontology.name
-        deallocation_request = DeallocationRequest(container_jid)
+        deallocation_request = DeallocationRequest(self._container_jid)
         self.agent.content_manager.fill_content(deallocation_request, request)
-        return request
+        return [request]
 
 
 class ContainersDeallocationResponder(RequestResponder):
@@ -42,21 +39,26 @@ class ContainersDeallocationResponder(RequestResponder):
         deallocation_mt = Template()
         deallocation_mt.set_metadata('protocol', 'Request')
         deallocation_mt.set_metadata('action', DeallocationRequest.__key__)
-        deallocation_behaviour = DeallocationInitiator(content.containers_jids)
-        self.agent.add_behaviour(deallocation_behaviour, deallocation_mt)
-        await deallocation_behaviour.join()
+
+        for container_jid in content.containers_jids:
+            deallocation_behaviour = DeallocationInitiator(container_jid)
+            self.agent.add_behaviour(deallocation_behaviour, deallocation_mt)
+            await deallocation_behaviour.join()
 
         self.agent.log('Containers deallocated by Port Manager')
         response = ACLMessage(to=str(request.sender))
         response.performative = Performative.INFORM
-        response.protocol = 'Request',
+        response.protocol = 'Request'
         response.ontology = self.agent.ontology.name
         response.action = ContainersDeallocationRequest.__key__
         return response
 
 
 class PortManagerAgent(BaseAgent):
-    def setup(self):
+    def __init__(self, jid: str, password: str):
+        super().__init__(jid, password, PortTerminalOntology.instance())
+
+    async def setup(self):
         containers_deallocation_mt = Template()
         containers_deallocation_mt.set_metadata('protocol', 'Request')
         containers_deallocation_mt.set_metadata('action', ContainersDeallocationRequest.__key__)

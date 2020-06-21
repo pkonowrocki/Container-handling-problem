@@ -3,7 +3,6 @@ from asyncio import Lock
 from datetime import datetime
 from typing import Sequence, List, NamedTuple
 
-from spade.behaviour import TimeoutBehaviour
 from spade.template import Template
 
 from src.agents.base_agent import BaseAgent
@@ -12,7 +11,8 @@ from src.behaviours.request_initiator import RequestInitiator
 from src.behaviours.request_responder import RequestResponder
 from src.ontology.ontology import ContentElement
 from src.ontology.port_terminal_ontology import PortTerminalOntology, ContainerData, AllocationProposal, \
-    AllocationConfirmation, AllocationProposalAcceptance, SelfDeallocationRequest, AllocationRequest, ReallocationRequest
+    AllocationConfirmation, AllocationProposalAcceptance, SelfDeallocationRequest, AllocationRequest, \
+    ReallocationRequest, DeallocationRequest
 from src.utils.acl_message import ACLMessage
 from src.utils.performative import Performative
 
@@ -88,7 +88,7 @@ class AllocationInitiator(ContractNetInitiator):
                 rejections.append(msg.create_reply(Performative.REJECT_PROPOSAL))
 
 
-class DeallocationInitiator(RequestInitiator):
+class SelfDeallocationInitiator(RequestInitiator):
 
     async def prepare_requests(self) -> Sequence[ACLMessage]:
         await self.agent.acquire_lock()
@@ -118,12 +118,33 @@ class DeallocationInitiator(RequestInitiator):
         self.agent.release_lock()
 
 
-class DeallocationLauncher(TimeoutBehaviour):
-    async def run(self):
-        deallocation_initiator = DeallocationInitiator()
-        self.agent.add_behaviour(deallocation_initiator)
-        await deallocation_initiator.join()
-        await self.agent.stop()
+class DeallocationResponder(RequestResponder):
+    async def prepare_response(self, request: ACLMessage) -> ACLMessage:
+        content: ContentElement = self.agent.content_manager.extract_content(request)
+        if isinstance(content, DeallocationRequest):
+            await self.agent.acquire_lock()
+            return request.create_reply(Performative.AGREE)
+        return request.create_reply(Performative.NOT_UNDERSTOOD)
+
+    async def prepare_result_notification(self, request: ACLMessage) -> ACLMessage:
+        self_deallocation_mt = Template()
+        self_deallocation_mt.set_metadata('protocol', 'ContractNet')
+        self_deallocation_mt.set_metadata('action', SelfDeallocationRequest.__key__)
+        self_deallocation_behaviour = SelfDeallocationInitiator()
+        self.agent.add_behaviour(self_deallocation_behaviour)
+
+        await self_deallocation_behaviour.join()
+
+        response = ACLMessage(
+            to=str(request.sender),
+            sender=str(self.agent.jid)
+        )
+        response.performative = Performative.INFORM
+        response.action = DeallocationRequest.__key__
+        response.protocol = 'Request'
+        response.ontology = self.agent.ontology.name
+        self.agent.release_lock()
+        return response
 
 
 class ReallocationResponder(RequestResponder):
@@ -172,7 +193,7 @@ class ContainerAgent(BaseAgent):
 
         deallocation_mt = Template()
         deallocation_mt.set_metadata('protocol', 'ContractNet')
-        deallocation_mt.set_metadata('action', SelfDeallocationRequest.__key__)
+        deallocation_mt.set_metadata('action', DeallocationRequest.__key__)
 
         reallocation_mt = Template()
         reallocation_mt.set_metadata('protocol', 'Request')
@@ -180,7 +201,7 @@ class ContainerAgent(BaseAgent):
 
         self._lock = Lock()
         self.add_behaviour(AllocationInitiator(self.available_slots_jids), allocation_mt)
-        self.add_behaviour(DeallocationLauncher(self.departure_time), deallocation_mt)
+        self.add_behaviour(DeallocationResponder(), deallocation_mt)
         self.add_behaviour(ReallocationResponder(), reallocation_mt)
         self.log(f'Container agent for {self.name} started.')
 

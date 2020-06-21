@@ -56,6 +56,12 @@ class ContainersDeallocationRequest(Action):
     __key__ = 'containers_deallocation_request'
 
 
+@dataclass
+class DeallocationRequest(Action):
+    container_id: str
+    __key__ = 'deallocation_request'
+
+
 @Singleton
 class PortTerminalOntology(Ontology):
     def __init__(self):
@@ -68,3 +74,4 @@ class PortTerminalOntology(Ontology):
         self.add(AllocationProposalAcceptance)
         self.add(SelfDeallocationRequest)
         self.add(ReallocationRequest)
+        self.add(DeallocationRequest)

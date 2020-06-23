@@ -13,13 +13,14 @@ from src.agents.DFAgent import DFService, DFAgent
 
 from src.agents.port_manager_agent import PortManagerAgent
 from src.agents.truck_agent import TruckAgent
+from src.utils.test_environment import TestEnvironment
 
 sys.path.extend(['.'])
 
 from src.agents.container_agent import ContainerAgent, SlotJid
 from src.agents.slot_manager_agent import SlotManagerAgent
 
-DEFAULT_XMPP_SERVER = 'host.docker.internal'
+DEFAULT_XMPP_SERVER = '192.168.0.24'
 
 
 def run_slot_manager_agent(slot_id: str, domain: str, max_height: int):
@@ -85,16 +86,17 @@ def main(domain: str, max_slot_height: int, slot_count: int, container_count: in
         #     asyncio.run(asyncio.sleep(3))
 
         # Run trucks managers and containers
-        containers_ids = range(container_count)
-        truck_id = 0
-        for truck_containers in zip(containers_ids[0::2], containers_ids[1::2]):
-            departure_time = datetime.now() + timedelta(seconds=40)
-            containers_jids = [f'container_{container_id}@{domain}' for container_id in truck_containers]
-            run_truck_agent(truck_id, domain, departure_time, containers_jids, port_manager_agent_jid)
 
-            for container_jid in containers_jids:
-                run_container_agent(container_jid, departure_time, slot_manager_agents_jids)
-                time.sleep(3)
+        test_environment = TestEnvironment(domain, max_slot_height, slot_count, container_count)
+        containers_data = test_environment.prepare_test(1)
+        truck_id = 0
+        for container_data in containers_data:
+            containers_jids = [container_data.jid]
+            run_truck_agent(truck_id, domain, container_data.departure_time, containers_jids, port_manager_agent_jid)
+            time_until_arrival = container_data.arrival_time - datetime.now()
+            if time_until_arrival.seconds > 0:
+                time.sleep(time_until_arrival.seconds)
+            agents.append(run_container_agent(container_data.jid, container_data.departure_time, slot_manager_agents_jids))
             truck_id += 1
 
         while True:

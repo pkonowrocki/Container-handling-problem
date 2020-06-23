@@ -7,7 +7,7 @@
         <link rel="stylesheet" href="../static/slot.css">
     </head>
     <body style="height: 100%; margin: 0; display: flex; flex-direction: column;">
-        <div style="
+        <div id="containers" style="
             width: 100%;
             height: 100%;
             max-width: 30rem;
@@ -36,4 +36,37 @@
             {% endfor %}
         </div>
     </body>
+    <script>
+        function getContainerDiv(container) {
+            var node = document.createElement('div');
+            var textNode  = document.createTextNode(container);
+            node.appendChild(textNode);
+            node.style = "background: lightblue;\
+                padding: 4px;\
+                height: 20%;\
+                box-shadow: 3px 3px gray;\
+                margin: 4px;\
+                text-align: center;\
+                justify-content: center;\
+                display: flex;\
+                align-content: center;\
+                text-align: center;\
+                flex-flow: column;"
+            return node;
+        }
+
+        try{
+            var sock = new WebSocket('ws://' + window.location.host + '/ws');
+        }
+        catch(err){
+            var sock = new WebSocket('wss://' + window.location.host + '/ws');
+        }
+
+        sock.onmessage = function(event) {
+            var containers = JSON.parse(event.data).containers;
+            const containersNode = document.getElementById("containers");
+            containersNode.innerHTML = '';
+            containers.forEach(container => containersNode.appendChild(getContainerDiv(container)));
+        };
+    </script>
 </html>

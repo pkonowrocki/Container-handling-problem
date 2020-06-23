@@ -72,6 +72,11 @@ class DFAgent(BaseAgent):
         def __compare(item: DFAgentDescription, template: DFAgentDescription) -> bool:
             if template.agentName is not None and not item.agentName == template.agentName:
                 return False
+            if template.ontology is not None and not item.ontology == template.ontology:
+                return False
+            if template.service is not None and \
+                    template.service.properties is None:
+                return True
             if template.service is not None and \
                     template.service.properties is not None and \
                     item.service is not None and \

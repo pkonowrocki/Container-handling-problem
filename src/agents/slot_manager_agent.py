@@ -9,7 +9,7 @@ from src.behaviours.contract_net_responder import ContractNetResponder
 from src.behaviours.request_initiator import RequestInitiator
 from src.behaviours.request_responder import RequestResponder
 from src.ontology.port_terminal_ontology import AllocationProposal, \
-    PortTerminalOntology, AllocationProposalAcceptance, AllocationConfirmation, DeallocationRequest, \
+    PortTerminalOntology, AllocationProposalAcceptance, AllocationConfirmation, SelfDeallocationRequest, \
     AllocationRequest, ReallocationRequest
 from src.utils.acl_message import ACLMessage
 from src.utils.performative import Performative
@@ -72,11 +72,11 @@ class AllocationResponder(ContractNetResponder):
         pass
 
 
-class DeallocationResponder(RequestResponder):
+class SelfDeallocationResponder(RequestResponder):
 
     async def prepare_response(self, request: ACLMessage) -> ACLMessage:
         content = self.agent.content_manager.extract_content(request)
-        if isinstance(content, DeallocationRequest):
+        if isinstance(content, SelfDeallocationRequest):
             await self.agent.acquire_lock()
             if self.agent.has_container(content.container_id):
                 return request.create_reply(Performative.AGREE)
@@ -86,7 +86,7 @@ class DeallocationResponder(RequestResponder):
         return request.create_reply(Performative.NOT_UNDERSTOOD)
 
     async def prepare_result_notification(self, request: ACLMessage) -> ACLMessage:
-        content: DeallocationRequest = self.agent.content_manager.extract_content(request)
+        content: SelfDeallocationRequest = self.agent.content_manager.extract_content(request)
         blocking_containers = self.agent.get_blocking_containers(content.container_id)
         for container_id, _, container_agent_jid in blocking_containers:
             self.agent.remove_container(container_id)
@@ -97,10 +97,10 @@ class DeallocationResponder(RequestResponder):
             to=str(request.sender),
             sender=str(self.agent.jid)
         )
-        request.protocol = 'Request'
-        request.ontology = self.agent.ontology.name
+        response.protocol = 'Request'
+        response.ontology = self.agent.ontology.name
         response.performative = Performative.INFORM
-        response.action = DeallocationRequest.__key__
+        response.action = SelfDeallocationRequest.__key__
         return response
 
     async def _reallocate_container(self, container_jid: str):
@@ -119,10 +119,8 @@ class ReallocationInitiator(RequestInitiator):
         self._container_jid = container_jid
 
     async def prepare_requests(self) -> Sequence[ACLMessage]:
-        request = ACLMessage(
-            to=self._container_jid,
-            sender=str(self.agent.jid)
-        )
+        request = ACLMessage(to=self._container_jid)
+        request.performative = Performative.REQUEST
         request.protocol = 'Request'
         request.ontology = self.agent.ontology.name
         self.agent.content_manager.fill_content(ReallocationRequest(self.agent.slot_id), request)
@@ -147,13 +145,13 @@ class SlotManagerAgent(BaseAgent):
         allocation_mt.set_metadata('protocol', 'ContractNet')
         allocation_mt.set_metadata('action', AllocationRequest.__key__)
 
-        deallocation_mt = Template()
-        deallocation_mt.set_metadata('protocol', 'Request')
-        deallocation_mt.set_metadata('action', DeallocationRequest.__key__)
+        self_deallocation_mt = Template()
+        self_deallocation_mt.set_metadata('protocol', 'Request')
+        self_deallocation_mt.set_metadata('action', SelfDeallocationRequest.__key__)
 
         self._lock = Lock()
         self.add_behaviour(AllocationResponder(), allocation_mt)
-        self.add_behaviour(DeallocationResponder(), deallocation_mt)
+        self.add_behaviour(SelfDeallocationResponder(), self_deallocation_mt)
         self.log(f'Slot manager agent for slot no {self.slot_id} started')
 
     @property

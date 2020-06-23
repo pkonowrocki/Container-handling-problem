@@ -1,0 +1,13 @@
+<html>
+    <head>
+        <title>{{agent.jid}}</title>
+    </head>
+    <body>
+        <h3>Containers:</h3>
+        <ul>
+            {% for c in containers %}
+            <li> {{ c }} </li>
+            {% endfor %}
+        </ul>
+    </body>
+</html>

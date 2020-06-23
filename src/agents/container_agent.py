@@ -64,7 +64,7 @@ class AllocationInitiator(ContractNetInitiator):
         cfp.ontology = self.agent.ontology.name
         cfp.protocol = 'ContractNet'
         cfp.action = AllocationRequest.__key__
-        container_data: ContentElement = ContainerData(str(self.agent.jid), self.agent.departure_time)
+        container_data: ContentElement = ContainerData(self.agent.jid.localpart, self.agent.departure_time)
         content: ContentElement = AllocationRequest(container_data)
         self.agent.content_manager.fill_content(content, cfp)
         return cfp
@@ -80,7 +80,7 @@ class AllocationInitiator(ContractNetInitiator):
         best_proposal: ACLMessage = min(proposals, key=fetch_allocation_eval)
         acceptance = best_proposal.create_reply(Performative.ACCEPT_PROPOSAL)
         acceptance_content: ContentElement = AllocationProposalAcceptance(
-            ContainerData(self.agent.jid, str(self.agent.departure_time)))
+            ContainerData(self.agent.jid.localpart, str(self.agent.departure_time)))
         self.agent.content_manager.fill_content(acceptance_content, acceptance)
         acceptances.append(acceptance)
         for msg in proposals:
@@ -100,7 +100,7 @@ class DeallocationInitiator(RequestInitiator):
         )
         request.protocol = 'Request'
         request.ontology = self.agent.ontology.name
-        self.agent.content_manager.fill_content(DeallocationRequest(self.agent.jid), request)
+        self.agent.content_manager.fill_content(DeallocationRequest(self.agent.jid.localpart), request)
         return [request]
 
     def handle_refuse(self, response: ACLMessage):

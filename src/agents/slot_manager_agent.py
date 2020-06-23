@@ -143,6 +143,8 @@ class SlotManagerAgent(BaseAgent):
         self._containers: List[SlotItem] = []
 
     async def setup(self):
+        self.web.add_get("/slot", self.controller, "slot.html")
+        self.web.start(port=8000 + int(self._slot_id), templates_path="../src/templates")
         allocation_mt = Template()
         allocation_mt.set_metadata('protocol', 'ContractNet')
         allocation_mt.set_metadata('action', AllocationRequest.__key__)
@@ -193,3 +195,6 @@ class SlotManagerAgent(BaseAgent):
                 break
             blocking_containers.append(cur_container)
         return blocking_containers
+
+    def controller(self, request):
+        return {"containers": [container_id for container_id, _, _ in self._containers]}

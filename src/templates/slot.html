@@ -1,10 +1,10 @@
 <!doctype html>
 
 <html style="height: 100%;">
-<head>
-    <meta charset="utf-8">
-    <title>{{agent.jid}}</title>
-    <style>
+    <head>
+        <meta charset="utf-8">
+        <title>{{agent.jid}}</title>
+        <style>
             #slot {
                 width: 100%;
                 height: 100%;
@@ -28,19 +28,18 @@
                 text-align: center;
                 flex-flow: column;
             }
-
-    </style>
-</head>
-<body style="height: 100%; margin: 0; display: flex; flex-direction: column;">
-<div id="slot">
-    {% for c in containers %}
-    <div class="container">
-        {{ c }}
-    </div>
-    {% endfor %}
-</div>
-</body>
-<script>
+        </style>
+    </head>
+    <body style="height: 100%; margin: 0; display: flex; flex-direction: column;">
+        <div id="slot">
+            {% for c in containers %}
+            <div class="container">
+                {{ c }}
+            </div>
+            {% endfor %}
+        </div>
+    </body>
+    <script>
         function getContainerDiv(container) {
             var node = document.createElement('div');
             var textNode  = document.createTextNode(container);
@@ -62,6 +61,5 @@
             slotNode.innerHTML = '';
             containers.forEach(container => slotNode.appendChild(getContainerDiv(container)));
         };
-
-</script>
+    </script>
 </html>

@@ -4,4 +4,3 @@ dataclass=0.0
 click=7.1.2
 aioxmpp~=0.11.0
 dataclasses~=0.7
-click~=7.0

@@ -4,7 +4,6 @@ from typing import List, NamedTuple, Sequence
 
 import aiohttp
 from aiohttp import web
-from aiohttp.web_ws import WebSocketResponse
 from spade.template import Template
 
 from src.agents.base_agent import BaseAgent
@@ -209,7 +208,7 @@ class SlotManagerAgent(BaseAgent):
         return [container_id for container_id, _, _ in self._containers]
 
     async def slot_controller(self, request):
-        return {"containers": self.containers}
+        return {"containers": self.containers, "containerHeight": int(100 / self._max_height)}
 
     async def ws_controller(self, request):
         await self._ws.prepare(request)

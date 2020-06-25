@@ -1,4 +1,5 @@
 import asyncio
+import multiprocessing
 import signal
 import sys
 from datetime import datetime, timedelta
@@ -59,11 +60,11 @@ def initializer():
 @click.option('--container-count', default=16, type=int, help='Container count')
 def main(domain: str, max_slot_height: int, slot_count: int, container_count: int):
     agents = []
+    pool = multiprocessing.Pool(slot_count + 2 * container_count, initializer=initializer)
     try:
-        df = DFAgent(f'dfagent@{domain}', 'password1234')
+        df = DFAgent(domain, 'password1234')
         future = df.start()
         future.result()
-        DFService.init(df)
         df.web.start(hostname="localhost", port="9999")
         agents.append(df)
 
@@ -73,14 +74,15 @@ def main(domain: str, max_slot_height: int, slot_count: int, container_count: in
 
         # Run slot managers
         for i in range(slot_count):
-            agents.append(run_slot_manager_agent(str(i), domain, max_slot_height))
+            pool.apply_async(run_slot_manager_agent, args=(str(i), domain, max_slot_height))
 
+        sleep(5)
         # Run truck managers and containers
         for i in range(container_count):
             departure_time = datetime.now() + timedelta(seconds=40)
             container_jid = f'container_{i}@{domain}'
-            run_container_agent(container_jid, departure_time)
-            run_truck_agent(i, domain, departure_time, [container_jid], port_manager_agent_jid)
+            pool.apply_async(run_container_agent, args=(container_jid, departure_time))
+            pool.apply_async(run_truck_agent, args=(i, domain, departure_time, [container_jid], port_manager_agent_jid))
             sleep(3)
 
         while True:
@@ -89,8 +91,8 @@ def main(domain: str, max_slot_height: int, slot_count: int, container_count: in
     except KeyboardInterrupt:
         print("Agent System terminated")
     finally:
-        for agent in agents:
-            agent.stop()
+        pool.terminate()
+        pool.join()
 
 
 if __name__ == "__main__":

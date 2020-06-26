@@ -252,4 +252,4 @@ class SlotManagerAgent(BaseAgent):
         })
         dfd: DFAgentDescription = DFAgentDescription(jid_to_str(self.jid), '', 'port_terminal_ontology',
                                                      ContentLanguage.XML, serviceDescription)
-        await DFService.register(self, dfd, HandleRegistrationBehaviour())
+        await DFService.register(self, dfd, HandleRegistrationBehaviour(), self.jid.domain)

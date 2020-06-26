@@ -54,7 +54,7 @@ class RequestInitiator(Initiator):
             return
 
         if self._state == RequestInitiatorState.ALL_RESULT_NOTIFICATIONS_RECEIVED:
-            self.handle_all_responses(self._result_notifications)
+            self.handle_all_result_notifications(self._result_notifications)
             self._state = RequestInitiatorState.FINALIZED
             return
 

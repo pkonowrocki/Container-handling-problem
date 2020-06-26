@@ -16,6 +16,8 @@ from src.utils.performative import Performative
 
 
 class DFAgent(BaseAgent):
+    __localname = 'df_agent'
+
     class RegisterBehaviour(BaseCyclicBehaviour):
         def __init__(self, registeredServices: Sequence[DFAgentDescription], contentManager: ContentManager):
             super().__init__()
@@ -53,7 +55,7 @@ class DFAgent(BaseAgent):
                     searchServiceResponse: SearchServiceResponse = SearchServiceResponse(dfAgentDescriptionList)
 
                     self.contentManager.fill_content(searchServiceResponse, reply)
-                    reply.set_metadata("ontology", DFService.DFServiceOntology.name)
+                    reply.set_metadata("ontology", DFOntology.instance().name)
                     reply.set_metadata("performative", str(Performative.INFORM.value))
                 except Exception as ex:
                     sys.stderr.write(f'DF BaseAgent exception \n {ex} \n at ACLMessage \n {msg}')
@@ -138,11 +140,11 @@ class DFAgent(BaseAgent):
     Directory Facilitator BaseAgent
     """
 
-    def __init__(self, jid: str, password: str, verify_security: bool = False):
-        super().__init__(jid, password)
+    def __init__(self, domain: str, password: str):
+        super().__init__(f'{DFAgent.__localname}@{domain}', password)
         self.registeredServices: Sequence[DFAgentDescription] = []
         self.contentManager: ContentManager = ContentManager()
-        self.dfOntology: DFOntology = DFOntology()
+        self.dfOntology: DFOntology = DFOntology.instance()
         self.contentManager.register_ontology(self.dfOntology)
 
     async def setup(self):
@@ -225,7 +227,7 @@ class HandleSearchBehaviour(HandlerBehaviour):
                 self.state = HandleSearchBehaviour.CommunicationState.WAIT_FOR_RESPONSE
         elif self.state == HandleSearchBehaviour.CommunicationState.WAIT_FOR_RESPONSE:
             random: Optional[ACLMessage] = await self.receive()
-            if random is not None and random.ontology == DFService.DFServiceOntology.name and \
+            if random is not None and random.ontology == DFOntology.instance().name and \
                     random.action == SearchServiceResponse.__key__:
                 self.result: SearchServiceResponse = self.contentManager.extract_content(random)
                 newList = []
@@ -267,7 +269,7 @@ class HandleRegisterRequestBehaviour(HandlerBehaviour):
                 self.state = HandlerBehaviour.CommunicationState.WAIT_FOR_RESPONSE
         elif self.state == HandlerBehaviour.CommunicationState.WAIT_FOR_RESPONSE:
             random: Optional[ACLMessage] = await self.receive()
-            if random is not None and random.ontology == DFService.DFServiceOntology.name:
+            if random is not None and random.ontology == DFOntology.instance().name:
                 self.result = random
                 self.state = HandlerBehaviour.CommunicationState.HANDLE
                 if self.result.performative == Performative.INFORM:
@@ -301,7 +303,7 @@ class HandleDeregisterRequestBehaviour(HandlerBehaviour):
                 self.state = HandlerBehaviour.CommunicationState.WAIT_FOR_RESPONSE
         elif self.state == HandlerBehaviour.CommunicationState.WAIT_FOR_RESPONSE:
             random: Optional[ACLMessage] = await self.receive()
-            if random is not None and random.ontology == DFService.DFServiceOntology.name:
+            if random is not None and random.ontology == DFOntology.intance().name:
                 self.result = random
                 if self.result.performative == Performative.INFORM:
                     await self.handleAccept(self.result)
@@ -311,41 +313,39 @@ class HandleDeregisterRequestBehaviour(HandlerBehaviour):
 
 
 class DFService:
-    __df: DFAgent = None
     __contentManager: ContentManager = None
-    DFServiceOntology: DFOntology = None
 
     @staticmethod
-    def init(dfAgent: DFAgent):
-        DFService.__df = dfAgent
-        DFService.__contentManager = ContentManager()
-        DFService.DFServiceOntology = DFOntology()
-        DFService.__contentManager.register_ontology(DFService.DFServiceOntology)
+    def getContentManager():
+        if DFService.__contentManager is None:
+            DFService.__contentManager = ContentManager()
+            DFService.__contentManager.register_ontology(DFOntology.instance())
+        return DFService.__contentManager
 
     @staticmethod
     async def register(agent: BaseAgent, dfd: DFAgentDescription,
-                       handleBehaviour: HandleRegisterRequestBehaviour):
+                       handleBehaviour: HandleRegisterRequestBehaviour, domain: str):
         if dfd is None:
             raise TypeError
-        request: ACLMessage = DFService.__createRequestMessage(agent, RegisterService(dfd))
+        request: ACLMessage = DFService.__createRequestMessage(agent, RegisterService(dfd), domain)
         request.set_metadata("action", RegisterService.__key__)
         await DFService.__doFipaRequestClient(agent, request, handleBehaviour)
 
     @staticmethod
     async def search(agent: BaseAgent, dfd: DFAgentDescription,
-                     handleBehaviour: HandleSearchBehaviour):
+                     handleBehaviour: HandleSearchBehaviour, domain: str):
         if dfd is None:
             raise TypeError
-        request: ACLMessage = DFService.__createRequestMessage(agent, SearchServiceRequest(dfd))
+        request: ACLMessage = DFService.__createRequestMessage(agent, SearchServiceRequest(dfd), domain)
         request.set_metadata("action", SearchServiceRequest.__key__)
         await DFService.__doFipaRequestClient(agent, request, handleBehaviour)
 
     @staticmethod
     async def deregister(agent: BaseAgent, dfd: DFAgentDescription,
-                         handleBehaviour: HandleDeregisterRequestBehaviour):
+                         handleBehaviour: HandleDeregisterRequestBehaviour, domain: str):
         if dfd is None:
             raise TypeError
-        request: ACLMessage = DFService.__createRequestMessage(agent, DeregisterService(dfd))
+        request: ACLMessage = DFService.__createRequestMessage(agent, DeregisterService(dfd), domain)
         await DFService.__doFipaRequestClient(agent, request, handleBehaviour)
 
     @staticmethod
@@ -356,13 +356,9 @@ class DFService:
         agent.add_behaviour(handlerBehaviour)
 
     @staticmethod
-    def __createRequestMessage(agent: BaseAgent, action: Action) -> ACLMessage:
-        msg: ACLMessage = ACLMessage(
-            to=jid_to_str(DFService.__df.jid),
-            sender=jid_to_str(agent.jid)
-        )
-
+    def __createRequestMessage(agent: BaseAgent, action: Action, domain: str) -> ACLMessage:
+        msg: ACLMessage = ACLMessage(to=f'df_agent@{domain}')
         msg.performative = Performative.REQUEST
-        msg.ontology = DFService.DFServiceOntology.name
-        DFService.__contentManager.fill_content(action, msg)
+        msg.ontology = DFOntology.instance().name
+        DFService.getContentManager().fill_content(action, msg)
         return msg

@@ -17,7 +17,7 @@ def nested_dataclass(*args, **kwargs):
                         if not isinstance(value, list):
                             value = [value]
                         elem_type = field_type.__args__[0]
-                        new_obj = [elem_type(**item) for item in value]
+                        new_obj = [elem_type(**item) if isinstance(item, dict) else item for item in value]
                         kwargs[name] = new_obj
                 except AttributeError:
                     pass

@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import Sequence
+from dataclasses import dataclass, field
+from typing import Sequence, List
 
 from src.ontology.ontology import Ontology, ContentElement, Action
 from src.utils.nested_dataclass import nested_dataclass
@@ -50,9 +50,9 @@ class ReallocationRequest(Action):
     __key__ = 'reallocation_request'
 
 
-@dataclass
+@nested_dataclass
 class ContainersDeallocationRequest(Action):
-    containers_jids: Sequence[str]  # TODO: Replace containers_jids with containers_ids
+    containers_jids: List[str] = field(default_factory=list)
     __key__ = 'containers_deallocation_request'
 
 

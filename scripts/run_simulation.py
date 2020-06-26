@@ -60,10 +60,9 @@ def initializer():
 def main(domain: str, max_slot_height: int, slot_count: int, container_count: int):
     agents = []
     try:
-        df = DFAgent(f'dfagent@{domain}', 'password1234')
+        df = DFAgent(domain, 'password1234')
         future = df.start()
         future.result()
-        DFService.init(df)
         df.web.start(hostname="localhost", port="9999")
         agents.append(df)
 

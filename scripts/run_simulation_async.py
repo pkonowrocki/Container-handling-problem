@@ -45,7 +45,8 @@ def run_truck_agent(truck_id: int, domain: str, arrival_time: datetime, containe
 
 def run_port_manager_agent(jid: str):
     port_manager_agent = PortManagerAgent(jid, 'port_manager_password')
-    port_manager_agent.start()
+    future = port_manager_agent.start()
+    future.result()
 
 
 def initializer():
@@ -79,7 +80,7 @@ def main(domain: str, max_slot_height: int, slot_count: int, container_count: in
         sleep(5)
         # Run truck managers and containers
         for i in range(container_count):
-            departure_time = datetime.now() + timedelta(seconds=40)
+            departure_time = datetime.now() + timedelta(seconds=20)
             container_jid = f'container_{i}@{domain}'
             pool.apply_async(run_container_agent, args=(container_jid, departure_time))
             pool.apply_async(run_truck_agent, args=(i, domain, departure_time, [container_jid], port_manager_agent_jid))

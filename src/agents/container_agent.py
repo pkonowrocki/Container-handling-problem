@@ -1,7 +1,6 @@
 import math
 from asyncio import Lock
 from datetime import datetime
-from pprint import pprint
 from typing import Sequence, List, NamedTuple, Optional
 
 from spade.template import Template
@@ -18,13 +17,11 @@ from src.ontology.port_terminal_ontology import PortTerminalOntology, ContainerD
     ReallocationRequest, DeallocationRequest
 from src.utils.acl_message import ACLMessage
 from src.utils.content_language import ContentLanguage
-from src.utils.interaction_protocol import InteractionProtocol
-from src.utils.jid_utils import jid_to_str
 from src.utils.performative import Performative
 
 
 class SlotJid(NamedTuple):
-    slot_id: int
+    slot_id: str
     jid: str
 
 
@@ -37,7 +34,7 @@ class AllocationInitiator(ContractNetInitiator):
     async def prepare_cfps(self) -> Sequence[ACLMessage]:
         if self._is_first_allocation:
             await self.agent.acquire_lock()
-        cfps = [self._create_cfp(jid) for slot_id, jid in self._slot_manager_agents_jids]
+        cfps = [self._create_cfp(jid) for jid in self._slot_manager_agents_jids]
         return cfps
 
     def handle_all_responses(self, responses: Sequence[ACLMessage], acceptances: List[ACLMessage],
@@ -50,7 +47,6 @@ class AllocationInitiator(ContractNetInitiator):
         if isinstance(content, AllocationConfirmation):
             self.agent.log(f'Container successfully allocated in slot no {content.slot_id}')
             self.agent.slot_id = content.slot_id
-            self.agent.slot_jid = str(response.sender)
             if self._is_first_allocation:
                 self.agent.release_lock()
         else:
@@ -67,7 +63,7 @@ class AllocationInitiator(ContractNetInitiator):
         cfp.ontology = self.agent.ontology.name
         cfp.protocol = 'ContractNet'
         cfp.action = AllocationRequest.__key__
-        container_data: ContentElement = ContainerData(str(self.agent.jid), self.agent.departure_time)
+        container_data: ContentElement = ContainerData(self.agent.jid.localpart, self.agent.departure_time)
         content: ContentElement = AllocationRequest(container_data)
         self.agent.content_manager.fill_content(content, cfp)
         return cfp
@@ -83,7 +79,7 @@ class AllocationInitiator(ContractNetInitiator):
         best_proposal: ACLMessage = min(proposals, key=fetch_allocation_eval)
         acceptance = best_proposal.create_reply(Performative.ACCEPT_PROPOSAL)
         acceptance_content: ContentElement = AllocationProposalAcceptance(
-            ContainerData(self.agent.jid, str(self.agent.departure_time)))
+            ContainerData(self.agent.jid.localpart, str(self.agent.departure_time)))
         self.agent.content_manager.fill_content(acceptance_content, acceptance)
         acceptances.append(acceptance)
         for msg in proposals:
@@ -94,13 +90,13 @@ class AllocationInitiator(ContractNetInitiator):
 class SelfDeallocationInitiator(RequestInitiator):
 
     async def prepare_requests(self) -> Sequence[ACLMessage]:
-        if self.agent.slot_jid is None:
+        if self.agent.slot_id is None:
             raise Exception('Container is not allocated')
         request = ACLMessage(to=self.agent.slot_jid)
         request.protocol = 'Request'
         request.ontology = self.agent.ontology.name
         request.performative = Performative.REQUEST
-        self.agent.content_manager.fill_content(SelfDeallocationRequest(self.agent.jid), request)
+        self.agent.content_manager.fill_content(SelfDeallocationRequest(self.agent.jid.localpart), request)
         return [request]
 
     def handle_refuse(self, response: ACLMessage):
@@ -108,7 +104,6 @@ class SelfDeallocationInitiator(RequestInitiator):
 
     def handle_inform(self, response: ACLMessage):
         self.agent.slot_id = None
-        self.agent.slot_jid = None
         self.agent.log(f'Deallocation succeeded. Delay: {str(datetime.now() - self.agent.departure_time)}')
 
     def handle_failure(self, response: ACLMessage):
@@ -170,10 +165,8 @@ class ReallocationResponder(RequestResponder):
 
 
 class SearchSlotManagersHandlerBehaviour(HandleSearchBehaviour):
-
     async def handleResponse(self, result: Optional[Sequence[DFAgentDescription]]):
-        # pprint(result)
-        self.agent._slot_manager_agents_jids = [SlotJid(int(x.service.properties['slot_id']), str(x.agentName)) \
+        self.agent._slot_manager_agents_jids = [SlotJid(x.service.properties['slot_id'], x.agentName)
                                                 for x in result]
 
         allocation_mt = Template()
@@ -190,7 +183,7 @@ class SearchSlotManagersHandlerBehaviour(HandleSearchBehaviour):
 
         self.agent.log(f'Found slot managers')
         self.agent.add_behaviour(DeallocationResponder(), deallocation_mt)
-        self.agent.add_behaviour(AllocationInitiator(self.agent._slot_manager_agents_jids), allocation_mt)
+        self.agent.add_behaviour(AllocationInitiator(self.agent.available_slots_jids), allocation_mt)
         self.agent.add_behaviour(ReallocationResponder(), reallocation_mt)
 
     async def handleFailure(self, msg: ACLMessage):
@@ -198,20 +191,19 @@ class SearchSlotManagersHandlerBehaviour(HandleSearchBehaviour):
 
 
 class ContainerAgent(BaseAgent):
-    def __init__(self, jid: str, password: str, slot_manager_agents_jids: Sequence[SlotJid], departure_time: datetime):
+    def __init__(self, jid: str, password: str, departure_time: datetime):
         super().__init__(jid, password, PortTerminalOntology.instance())
-        self._slot_manager_agents_jids = []  # TODO: Replace this line with fetching jids from DF
+        self._slot_manager_agents_jids: Sequence[SlotJid] = []
         self._departure_time: datetime = departure_time
         self._slot_id = None
-        self._slot_jid = None
 
     async def setup(self):
-        serviceDescription: ServiceDescription = ServiceDescription({})
+        service_description: ServiceDescription = ServiceDescription({})
         dfd: DFAgentDescription = DFAgentDescription('', '', 'port_terminal_ontology',
-                                                     ContentLanguage.XML, serviceDescription)
+                                                     ContentLanguage.XML, service_description)
 
         self.log(f'Container agent for {self.name} started.')
-        await DFService.search(self, dfd, SearchSlotManagersHandlerBehaviour())
+        await DFService.search(self, dfd, SearchSlotManagersHandlerBehaviour(), self.jid.domain)
         self._lock = Lock()
 
     @property
@@ -228,12 +220,8 @@ class ContainerAgent(BaseAgent):
 
     @property
     def slot_jid(self) -> str:
-        return self._slot_jid
-
-    @slot_jid.setter
-    def slot_jid(self, value: str):
-        self._slot_jid = value
+        return next(slot_jid.jid for slot_jid in self._slot_manager_agents_jids if slot_jid.slot_id == self.slot_id)
 
     @property
     def available_slots_jids(self) -> Sequence[str]:
-        return [x for x in self._slot_manager_agents_jids if x.slot_id != self.slot_id]
+        return [slot_jid.jid for slot_jid in self._slot_manager_agents_jids if slot_jid.slot_id != self.slot_id]

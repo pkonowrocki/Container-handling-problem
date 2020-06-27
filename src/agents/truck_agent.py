@@ -20,8 +20,7 @@ class ContainersDeallocationInititiator(RequestInitiator):
         return [request]
 
     def handle_all_result_notifications(self, result_notifications: Sequence[ACLMessage]):
-        success_count = len([msg for msg in result_notifications if msg.performative == Performative.INFORM])
-        self.agent.log(f'{success_count}/{len(self.agent.containers_jids)} containers successfully deallocated')
+        self.agent.log('Containers successfully deallocated')
 
 
 class ContainersDeallocationLauncher(TimeoutBehaviour):

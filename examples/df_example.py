@@ -56,11 +56,11 @@ class ServiceAgent(BaseAgent):
                 serviceDescription)
 
             # register service
-            await DFService.register(self.agent, dfd, ServiceAgent.RegistrationHandler())
+            await DFService.register(self.agent, dfd, ServiceAgent.RegistrationHandler(), XMPP_SERVER)
             # wait
             await asyncio.sleep(20)
             # deregister service
-            await DFService.deregister(self.agent, dfd, ServiceAgent.DeregisterHandler())
+            await DFService.deregister(self.agent, dfd, ServiceAgent.DeregisterHandler(), XMPP_SERVER)
 
     async def setup(self):
         b = self.JobBehaviour()
@@ -93,11 +93,11 @@ class ClientAgent(BaseAgent):
                 "",
                 serviceDescription)
             await asyncio.sleep(5)
-            await DFService.search(self.agent, dfd, ClientAgent.SearchHandler())
+            await DFService.search(self.agent, dfd, ClientAgent.SearchHandler(), XMPP_SERVER)
             await asyncio.sleep(10)
-            await DFService.search(self.agent, dfd, ClientAgent.SearchHandler())
+            await DFService.search(self.agent, dfd, ClientAgent.SearchHandler(), XMPP_SERVER)
             await asyncio.sleep(10)
-            await DFService.search(self.agent, dfd, ClientAgent.SearchHandler())
+            await DFService.search(self.agent, dfd, ClientAgent.SearchHandler(), XMPP_SERVER)
 
     async def setup(self):
         b = self.JobBehaviour()
@@ -143,11 +143,11 @@ class OtherServiceAgent(BaseAgent):
                 serviceDescription)
 
             # register service
-            await DFService.register(self.agent, dfd, ServiceAgent.RegistrationHandler())
+            await DFService.register(self.agent, dfd, ServiceAgent.RegistrationHandler(), XMPP_SERVER)
             # wait
             await asyncio.sleep(20)
             # deregister service
-            await DFService.deregister(self.agent, dfd, ServiceAgent.DeregisterHandler())
+            await DFService.deregister(self.agent, dfd, ServiceAgent.DeregisterHandler(), XMPP_SERVER)
 
     async def setup(self):
         b = self.JobBehaviour()

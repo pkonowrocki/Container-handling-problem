@@ -2,6 +2,8 @@ from asyncio import Lock
 from datetime import datetime
 from typing import List, NamedTuple, Sequence
 
+import aiohttp
+from aiohttp import web
 from spade.template import Template
 
 from src.agents.DFAgent import DFService, HandleRegisterRequestBehaviour
@@ -59,7 +61,7 @@ class AllocationResponder(ContractNetResponder):
         content = self.agent.content_manager.extract_content(accept)
         if isinstance(content, AllocationProposalAcceptance):
             try:
-                self.agent.add_container(
+                await self.agent.add_container(
                     content.container_data.id,
                     content.container_data.departure_time,
                     str(accept.sender)
@@ -94,9 +96,9 @@ class SelfDeallocationResponder(RequestResponder):
         content: SelfDeallocationRequest = self.agent.content_manager.extract_content(request)
         blocking_containers = self.agent.get_blocking_containers(content.container_id)
         for container_id, _, container_agent_jid in blocking_containers:
-            self.agent.remove_container(container_id)
+            await self.agent.remove_container(container_id)
             await self._reallocate_container(container_agent_jid)
-        self.agent.remove_container(content.container_id)
+        await self.agent.remove_container(content.container_id)
         self.agent.release_lock()
         response = ACLMessage(
             to=str(request.sender),
@@ -156,8 +158,13 @@ class SlotManagerAgent(BaseAgent):
         self._slot_id: str = slot_id
         self._max_height: int = max_height
         self._containers: List[SlotItem] = []
+        self._ws = web.WebSocketResponse()
+        self._prepared = False
 
     async def setup(self):
+        self.web.add_get("/slot", self.slot_controller, "slot.html")
+        self.web.add_get("/ws", self.ws_controller, template=None, raw=True)
+        self.web.start(port=8000 + int(self._slot_id), templates_path="../src/templates")
         allocation_mt = Template()
         allocation_mt.set_metadata('protocol', 'ContractNet')
         allocation_mt.set_metadata('action', AllocationRequest.__key__)
@@ -190,15 +197,19 @@ class SlotManagerAgent(BaseAgent):
             0
         )
 
-    def add_container(self, container_id: str, departure_time: str, container_agent_jid: str):
+    async def add_container(self, container_id: str, departure_time: str, container_agent_jid: str):
         parsed_departure_time = datetime.fromisoformat(departure_time)
         self._containers.append(SlotItem(container_id, parsed_departure_time, container_agent_jid))
+        if self._prepared:
+            await self._ws.send_json({"containers": self.containers})
 
     def has_container(self, search_id: str) -> bool:
         return search_id in [container_id for container_id, _, _ in self._containers]
 
-    def remove_container(self, container_id: str):
+    async def remove_container(self, container_id: str):
         self._containers = [slot_item for slot_item in self._containers if slot_item.container_id != container_id]
+        if self._prepared:
+            await self._ws.send_json({"containers": self.containers})
 
     def get_blocking_containers(self, container_id) -> Sequence[SlotItem]:
         blocking_containers: List[SlotItem] = []
@@ -209,6 +220,31 @@ class SlotManagerAgent(BaseAgent):
             blocking_containers.append(cur_container)
         return blocking_containers
 
+    @property
+    def containers(self):
+        return [container_id for container_id, _, _ in self._containers]
+
+    async def slot_controller(self, request):
+        return {"containers": self.containers, "containerHeight": int(100 / self._max_height)}
+
+    async def ws_controller(self, request):
+        await self._ws.prepare(request)
+        self._prepared = True
+
+        async for msg in self._ws:
+            if msg.type == aiohttp.WSMsgType.TEXT:
+                if msg.data == 'close':
+                    await self._ws.close()
+                else:
+                    await self._ws.send_str(msg.data + '/answer')
+            elif msg.type == aiohttp.WSMsgType.ERROR:
+                print('ws connection closed with exception %s' %
+                      self._ws.exception())
+
+        print('websocket connection closed')
+
+        return self._ws
+
     async def register_service(self):
         self.log('start registration')
         serviceDescription: ServiceDescription = ServiceDescription({
@@ -216,4 +252,4 @@ class SlotManagerAgent(BaseAgent):
         })
         dfd: DFAgentDescription = DFAgentDescription(jid_to_str(self.jid), '', 'port_terminal_ontology',
                                                      ContentLanguage.XML, serviceDescription)
-        await DFService.register(self, dfd, HandleRegistrationBehaviour())
+        await DFService.register(self, dfd, HandleRegistrationBehaviour(), self.jid.domain)

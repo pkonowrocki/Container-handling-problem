@@ -1,14 +1,9 @@
-import multiprocessing
 import random
-import signal
-from datetime import datetime, timedelta, time
 from dataclasses import dataclass
+from datetime import datetime, timedelta
+from threading import Lock
 from typing import List, Sequence
 
-from aioxmpp import JID
-
-from src.agents.container_agent import ContainerAgent, SlotJid
-from src.agents.slot_manager_agent import SlotManagerAgent
 from src.utils.singleton import Singleton
 
 
@@ -42,6 +37,7 @@ class TestEnvironment:
         self._slot_count = 0
         self._container_count = 0
         self._container_move_count = 0
+        self._lock = Lock()
 
     def setup(self, domain: str, max_slot_height: int, slot_count: int, container_count):
         self._domain = domain
@@ -69,6 +65,12 @@ class TestEnvironment:
             containers_left -= containers_batch
 
         return containers
+
+    def increment_moves_counter(self):
+        self._lock.acquire()
+        self._container_move_count += 1
+        print(f"Current moves count: {self._container_move_count}")
+        self._lock.release()
 
     def get_moves_count_for_naive_method(self, containers_data: List[ContainerData]):
         slots: List[List[ContainerData]] = [[] for i in range(self._slot_count)]

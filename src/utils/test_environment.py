@@ -9,6 +9,7 @@ from aioxmpp import JID
 
 from src.agents.container_agent import ContainerAgent, SlotJid
 from src.agents.slot_manager_agent import SlotManagerAgent
+from src.utils.singleton import Singleton
 
 
 @dataclass
@@ -33,8 +34,16 @@ def _sort_by_departure(container: ContainerData):
     return container.departure_time
 
 
+@Singleton
 class TestEnvironment:
-    def __init__(self, domain: str, max_slot_height: int, slot_count: int, container_count):
+    def __init__(self):
+        self._domain = ""
+        self._max_slot_height = 0
+        self._slot_count = 0
+        self._container_count = 0
+        self._container_move_count = 0
+
+    def setup(self, domain: str, max_slot_height: int, slot_count: int, container_count):
         self._domain = domain
         self._max_slot_height = max_slot_height
         self._slot_count = slot_count
@@ -46,7 +55,7 @@ class TestEnvironment:
         arrival_time = datetime.now() + timedelta(seconds=5)
         containers_left = self._container_count
         while containers_left > 0:
-            arrival_time += timedelta(seconds=random.randint(3, 3))
+            arrival_time += timedelta(seconds=random.randint(1, 10))
             if containers_left > max_containers_in_batch:
                 containers_batch = random.randint(1, max_containers_in_batch)
             else:
@@ -54,7 +63,7 @@ class TestEnvironment:
 
             for i in range(containers_batch):
                 container_id = self._container_count - containers_left + i
-                departure_time = arrival_time + timedelta(seconds=random.randint(10, 10))
+                departure_time = arrival_time + timedelta(seconds=random.randint(5, 35))
                 new_container = ContainerData(f'container_{container_id}@{self._domain}', arrival_time, departure_time)
                 containers.append(new_container)
             containers_left -= containers_batch

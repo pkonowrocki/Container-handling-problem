@@ -77,7 +77,8 @@ def main(domain: str, max_slot_height: int, slot_count: int, container_count: in
 
         # Run trucks managers and containers
 
-        test_environment = TestEnvironment(domain, max_slot_height, slot_count, container_count)
+        test_environment = TestEnvironment.instance()
+        test_environment.setup(domain, max_slot_height, slot_count, container_count)
         containers_data = test_environment.prepare_test(1)
         naive_moves = test_environment.get_moves_count_for_naive_method(containers_data)
         print(f"moves for naive method: {naive_moves}")
@@ -88,7 +89,7 @@ def main(domain: str, max_slot_height: int, slot_count: int, container_count: in
             time_until_arrival = container_data.arrival_time - datetime.now()
             if time_until_arrival.seconds > 0:
                 asyncio.run(asyncio.sleep(time_until_arrival.seconds))
-            agents.append(run_container_agent(container_data.jid, container_data.departure_time, slot_manager_agents_jids))
+            agents.append(run_container_agent(container_data.jid, container_data.departure_time))
             truck_id += 1
 
         while True:

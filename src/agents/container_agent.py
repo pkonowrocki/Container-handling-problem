@@ -50,7 +50,8 @@ class AllocationInitiator(ContractNetInitiator):
             self.agent.slot_id = content.slot_id
             if self._is_first_allocation:
                 self.agent.release_lock()
-            TestEnvironment.instance().increment_moves_counter()
+            self.agent.log("Container moved")
+            #TestEnvironment.instance().increment_moves_counter()
         else:
             self.agent.log('Allocation failed')
             self.agent.kill()
@@ -107,7 +108,8 @@ class SelfDeallocationInitiator(RequestInitiator):
     def handle_inform(self, response: ACLMessage):
         self.agent.slot_id = None
         self.agent.log(f'Deallocation succeeded. Delay: {str(datetime.now() - self.agent.departure_time)}')
-        TestEnvironment.instance().increment_moves_counter()
+        self.agent.log("Container moved")
+        #TestEnvironment.instance().increment_moves_counter()
 
     def handle_failure(self, response: ACLMessage):
         self.agent.log('Deallocation failed')

@@ -60,7 +60,8 @@ def initializer():
 @click.option('--max-slot-height', default=5, type=int, help='Max height of the slot')
 @click.option('--slot-count', default=4, type=int, help='Slots count')
 @click.option('--container-count', default=16, type=int, help='Container count')
-def main(domain: str, max_slot_height: int, slot_count: int, container_count: int):
+@click.option("--max-containers-batch", default=1, type=int, help="max containers number in single batch")
+def main(domain: str, max_slot_height: int, slot_count: int, container_count: int, max_container_batch: int):
     agents = []
     pool = multiprocessing.Pool(slot_count + 2 * container_count, initializer=initializer)
     try:
@@ -80,7 +81,7 @@ def main(domain: str, max_slot_height: int, slot_count: int, container_count: in
 
         test_environment = TestEnvironment.instance()
         test_environment.setup(domain, max_slot_height, slot_count, container_count)
-        containers_data = test_environment.prepare_test(1)
+        containers_data = test_environment.prepare_test(max_container_batch)
         naive_moves = test_environment.get_moves_count_for_naive_method(containers_data)
         print(f"moves for naive method: {naive_moves}")
         truck_id = 0
@@ -89,7 +90,7 @@ def main(domain: str, max_slot_height: int, slot_count: int, container_count: in
             containers_jids = [container_data.jid]
             pool.apply_async(run_truck_agent, args=(truck_id, domain, container_data.departure_time, containers_jids, port_manager_agent_jid))
             time_until_arrival = container_data.arrival_time - datetime.now()
-            if time_until_arrival.seconds > 0:
+            if time_until_arrival.seconds > 0 and time_until_arrival.days >= 0:
                 asyncio.run(asyncio.sleep(time_until_arrival.seconds))
             pool.apply_async(run_container_agent, args=(container_data.jid, container_data.departure_time))
             truck_id += 1

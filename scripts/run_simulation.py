@@ -59,16 +59,26 @@ def initializer():
 @click.option('--slot-count', default=4, type=int, help='Slots count')
 @click.option('--container-count', default=16, type=int, help='Container count')
 @click.option("--max-containers-batch", default=1, type=int, help="max containers number in single batch")
-@click.option("--min_arrival_delta", default=1, type=int, help="minimum arrival time delta between two batches in "
+@click.option("--min-arrival-delta", default=1, type=int, help="minimum arrival time delta between two batches in "
                                                                "seconds")
-@click.option("--max_arrival_delta", default=10, type=int, help="maximum arrival time delta between two batches in "
+@click.option("--max-arrival-delta", default=10, type=int, help="maximum arrival time delta between two batches in "
                                                                 "seconds")
-@click.option("--min_departure_delta", default=5, type=int, help="minimum time delta between arrival and departure of "
+@click.option("--min-departure-delta", default=5, type=int, help="minimum time delta between arrival and departure of "
                                                                  "container in seconds")
-@click.option("--max_departure_delta", default=35, type=int, help="maximum time delta between arrival and departure of "
+@click.option("--max-departure-delta", default=35, type=int, help="maximum time delta between arrival and departure of "
                                                                   "container in seconds")
-def main(domain: str, max_slot_height: int, slot_count: int, container_count: int, max_containers_batch: int,
-         min_arrival_delta: int, max_arrival_delta: int, min_departure_delta: int, max_departure_delta: int):
+@click.option("--departure-time-accuracy", default=0, type=int, help="accuracy of container departure time estimation "
+                                                                     "in seconds")
+def main(domain: str,
+         max_slot_height: int,
+         slot_count: int,
+         container_count: int,
+         max_containers_batch: int,
+         min_arrival_delta: int,
+         max_arrival_delta: int,
+         min_departure_delta: int,
+         max_departure_delta: int,
+         departure_time_accuracy: int):
     agents = []
     try:
         df = DFAgent(domain, 'password1234')
@@ -89,8 +99,12 @@ def main(domain: str, max_slot_height: int, slot_count: int, container_count: in
 
         test_environment = TestEnvironment.instance()
         test_environment.setup(domain, max_slot_height, slot_count, container_count)
-        containers_data = test_environment.prepare_test(max_containers_batch, min_arrival_delta, max_arrival_delta,
-                                                        min_departure_delta, max_departure_delta)
+        containers_data = test_environment.prepare_test(max_containers_batch,
+                                                        min_arrival_delta,
+                                                        max_arrival_delta,
+                                                        min_departure_delta,
+                                                        max_departure_delta,
+                                                        departure_time_accuracy)
         naive_moves = test_environment.get_moves_count_for_naive_method(containers_data)
         print(f"moves for naive method: {naive_moves}")
         truck_id = 0
@@ -100,7 +114,7 @@ def main(domain: str, max_slot_height: int, slot_count: int, container_count: in
             time_until_arrival = container_data.arrival_time - datetime.now()
             if time_until_arrival.seconds > 0 and time_until_arrival.days >= 0:
                 asyncio.run(asyncio.sleep(time_until_arrival.seconds))
-            agents.append(run_container_agent(container_data.jid, container_data.departure_time))
+            agents.append(run_container_agent(container_data.jid, container_data.estimated_departure_time))
             truck_id += 1
 
         while True:

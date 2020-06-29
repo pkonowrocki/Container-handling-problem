@@ -12,6 +12,7 @@ class ContainerData:
     jid: str
     arrival_time: datetime
     departure_time: datetime
+    estimated_departure_time: datetime
 
 
 @dataclass
@@ -46,12 +47,13 @@ class TestEnvironment:
         self._container_count = container_count
         self._container_move_count = 0
 
-    def prepare_test(self, max_containers_in_batch):
+    def prepare_test(self, max_containers_in_batch, min_arrival_delta, max_arrival_delta, min_departure_delta,
+                     max_departure_delta, departure_time_accuracy):
         containers = []
         arrival_time = datetime.now() + timedelta(seconds=5)
         containers_left = self._container_count
         while containers_left > 0:
-            arrival_time += timedelta(seconds=random.randint(1, 10))
+            arrival_time += timedelta(seconds=random.randint(min_arrival_delta, max_arrival_delta))
             if containers_left > max_containers_in_batch:
                 containers_batch = random.randint(1, max_containers_in_batch)
             else:
@@ -59,8 +61,14 @@ class TestEnvironment:
 
             for i in range(containers_batch):
                 container_id = self._container_count - containers_left + i
-                departure_time = arrival_time + timedelta(seconds=random.randint(5, 35))
-                new_container = ContainerData(f'container_{container_id}@{self._domain}', arrival_time, departure_time)
+                departure_time = arrival_time + timedelta(seconds=random.randint(min_departure_delta,
+                                                                                 max_departure_delta))
+                estimated_departure_time = departure_time + timedelta(seconds=random.randint(-departure_time_accuracy,
+                                                                                             departure_time_accuracy))
+                new_container = ContainerData(f'container_{container_id}@{self._domain}',
+                                              arrival_time,
+                                              departure_time,
+                                              estimated_departure_time)
                 containers.append(new_container)
             containers_left -= containers_batch
 

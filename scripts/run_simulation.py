@@ -59,7 +59,16 @@ def initializer():
 @click.option('--slot-count', default=4, type=int, help='Slots count')
 @click.option('--container-count', default=16, type=int, help='Container count')
 @click.option("--max-containers-batch", default=1, type=int, help="max containers number in single batch")
-def main(domain: str, max_slot_height: int, slot_count: int, container_count: int, max_container_batch: int):
+@click.option("--min_arrival_delta", default=1, type=int, help="minimum arrival time delta between two batches in "
+                                                               "seconds")
+@click.option("--max_arrival_delta", default=10, type=int, help="maximum arrival time delta between two batches in "
+                                                                "seconds")
+@click.option("--min_departure_delta", default=5, type=int, help="minimum time delta between arrival and departure of "
+                                                                 "container in seconds")
+@click.option("--max_departure_delta", default=35, type=int, help="maximum time delta between arrival and departure of "
+                                                                  "container in seconds")
+def main(domain: str, max_slot_height: int, slot_count: int, container_count: int, max_containers_batch: int,
+         min_arrival_delta: int, max_arrival_delta: int, min_departure_delta: int, max_departure_delta: int):
     agents = []
     try:
         df = DFAgent(domain, 'password1234')
@@ -80,7 +89,8 @@ def main(domain: str, max_slot_height: int, slot_count: int, container_count: in
 
         test_environment = TestEnvironment.instance()
         test_environment.setup(domain, max_slot_height, slot_count, container_count)
-        containers_data = test_environment.prepare_test(max_container_batch)
+        containers_data = test_environment.prepare_test(max_containers_batch, min_arrival_delta, max_arrival_delta,
+                                                        min_departure_delta, max_departure_delta)
         naive_moves = test_environment.get_moves_count_for_naive_method(containers_data)
         print(f"moves for naive method: {naive_moves}")
         truck_id = 0

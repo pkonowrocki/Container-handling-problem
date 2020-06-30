@@ -18,6 +18,7 @@ from src.ontology.port_terminal_ontology import PortTerminalOntology, ContainerD
 from src.utils.acl_message import ACLMessage
 from src.utils.content_language import ContentLanguage
 from src.utils.performative import Performative
+from src.utils.test_environment import TestEnvironment
 
 
 class SlotJid(NamedTuple):
@@ -49,6 +50,8 @@ class AllocationInitiator(ContractNetInitiator):
             self.agent.slot_id = content.slot_id
             if self._is_first_allocation:
                 self.agent.release_lock()
+            self.agent.log("Container moved")
+            #TestEnvironment.instance().increment_moves_counter()
         else:
             self.agent.log('Allocation failed')
             self.agent.kill()
@@ -105,6 +108,8 @@ class SelfDeallocationInitiator(RequestInitiator):
     def handle_inform(self, response: ACLMessage):
         self.agent.slot_id = None
         self.agent.log(f'Deallocation succeeded. Delay: {str(datetime.now() - self.agent.departure_time)}')
+        self.agent.log("Container moved")
+        #TestEnvironment.instance().increment_moves_counter()
 
     def handle_failure(self, response: ACLMessage):
         self.agent.log('Deallocation failed')

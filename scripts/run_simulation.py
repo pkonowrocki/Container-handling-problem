@@ -11,13 +11,14 @@ from src.agents.DFAgent import DFService, DFAgent
 
 from src.agents.port_manager_agent import PortManagerAgent
 from src.agents.truck_agent import TruckAgent
+from src.utils.test_environment import TestEnvironment
 
 sys.path.extend(['.'])
 
 from src.agents.container_agent import ContainerAgent
 from src.agents.slot_manager_agent import SlotManagerAgent
 
-DEFAULT_XMPP_SERVER = 'localhost'
+DEFAULT_XMPP_SERVER = '192.168.0.24'
 
 
 def run_slot_manager_agent(slot_id: str, domain: str, max_height: int):
@@ -74,13 +75,22 @@ def main(domain: str, max_slot_height: int, slot_count: int, container_count: in
         for i in range(slot_count):
             agents.append(run_slot_manager_agent(str(i), domain, max_slot_height))
 
-        # Run truck managers and containers
-        for i in range(container_count):
-            departure_time = datetime.now() + timedelta(seconds=40)
-            container_jid = f'container_{i}@{domain}'
-            run_container_agent(container_jid, departure_time)
-            run_truck_agent(i, domain, departure_time, [container_jid], port_manager_agent_jid)
-            sleep(3)
+        # Run trucks managers and containers
+
+        test_environment = TestEnvironment.instance()
+        test_environment.setup(domain, max_slot_height, slot_count, container_count)
+        containers_data = test_environment.prepare_test(1)
+        naive_moves = test_environment.get_moves_count_for_naive_method(containers_data)
+        print(f"moves for naive method: {naive_moves}")
+        truck_id = 0
+        for container_data in containers_data:
+            containers_jids = [container_data.jid]
+            run_truck_agent(truck_id, domain, container_data.departure_time, containers_jids, port_manager_agent_jid)
+            time_until_arrival = container_data.arrival_time - datetime.now()
+            if time_until_arrival.seconds > 0:
+                asyncio.run(asyncio.sleep(time_until_arrival.seconds))
+            agents.append(run_container_agent(container_data.jid, container_data.departure_time))
+            truck_id += 1
 
         while True:
             sleep(1)
